@@ -26,10 +26,8 @@ def get_cancelar_nfse_function():
             "required": ["numero"]
         }
     }
-"""
-Definições centralizadas de funções para agentes IA (function calling).
-"""
 
+# Função para emitir nota fiscal de serviço
 def get_emitir_nfse_function():
     return {
         "name": "emitir_nfse",
@@ -47,4 +45,3 @@ def get_emitir_nfse_function():
         }
     }
 
-# Adicione outras definições de agentes aqui conforme necessário

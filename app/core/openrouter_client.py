@@ -1,87 +1,87 @@
 import os
-import requests
 import re
 from dotenv import load_dotenv
-from app.agents.definitions import get_emitir_nfse_function, get_buscar_nfse_function, get_cancelar_nfse_function
+from langchain.tools import Tool
+from langchain_openai import ChatOpenAI
 
 load_dotenv()
 
-OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 OPENROUTER_MODEL = os.getenv('OPENROUTER_MODEL', 'openrouter/auto')
 OPENROUTER_TOKEN = os.getenv('OPENROUTER_TOKEN')
 
+from app.agents.nfse_agent import emitir_nfse, buscar_nfse, cancelar_nfse
+
+# Ferramentas para LangChain (podem ser usadas em fluxos customizados, LangGraph, etc)
+emitir_nfse_tool = Tool(
+   name="emitir_nfse",
+   description="Emite uma nota fiscal de serviço (NFS-e). Espera um dict com os campos: nome, valor, descricao, cnae, item_servico.",
+   func=emitir_nfse
+)
+buscar_nfse_tool = Tool(
+   name="buscar_nfse",
+   description="Busca uma nota fiscal de serviço (NFS-e) por filtros. Espera um dict com os campos: id_nfse, numero, nome, status.",
+   func=buscar_nfse
+)
+cancelar_nfse_tool = Tool(
+   name="cancelar_nfse",
+   description="Cancela uma nota fiscal de serviço (NFS-e) pelo número ou id. Espera um dict com os campos: id_nfse, numero.",
+   func=cancelar_nfse
+)
+
 def ask_openrouter(user_message: str, system_prompt: str = None) -> str:
-    token = OPENROUTER_TOKEN
-    if not token:
-        return 'Token OpenRouter não configurado.'
-    headers = {
-        'Authorization': f'Bearer {token}',
-        'Content-Type': 'application/json'
-    }
-    messages = []
-    system_instruction = "Responda apenas com os dados solicitados, sem instruções de código ou exemplos de chamadas de função. Se for necessário chamar uma função, apenas retorne os dados."
-    if system_prompt:
-        messages.append({"role": "system", "content": system_instruction + " " + system_prompt})
-    else:
-        messages.append({"role": "system", "content": system_instruction})
-    messages.append({"role": "user", "content": user_message})
-    payload = {
-        "model": OPENROUTER_MODEL,
-        "messages": messages,
-        "functions": [
-            get_emitir_nfse_function(),
-            get_buscar_nfse_function(),
-            get_cancelar_nfse_function()
-        ],
-        "temperature": 0.1
-    }
+   """
+   Envia uma mensagem para o modelo via OpenRouter usando LangChain ChatOpenAI.
+   Retorna apenas o texto gerado pela IA.
+   """
+   if not OPENROUTER_TOKEN:
+      return 'Token OpenRouter não configurado.'
 
-    response = requests.post(OPENROUTER_API_URL, headers=headers, json=payload)
-    if response.status_code != 200:
-        return f'Erro na chamada OpenRouter: {response.text}'
-    data = response.json()
-    choice = data.get('choices', [{}])[0]
-    message = choice.get('message', {})
+   llm = ChatOpenAI(
+      openai_api_key=OPENROUTER_TOKEN,
+      model_name=OPENROUTER_MODEL,
+      openai_api_base="https://openrouter.ai/api/v1"
+   )
 
-    import json
-    content = message.get('content', '')
+   messages = []
+   if system_prompt:
+      messages.append({"role": "system", "content": system_prompt})
+   messages.append({"role": "user", "content": user_message})
 
-    def is_json(text):
-        try:
-            obj = json.loads(text)
-            return obj
-        except Exception:
-            return None
+   try:
+      result = llm.invoke(messages)
+      # Extrai conteúdo da resposta
+      content = None
+      if isinstance(result, dict):
+         if 'choices' in result and isinstance(result['choices'], list):
+            choice = result['choices'][0]
+            if 'message' in choice and 'content' in choice['message']:
+               content = choice['message']['content']
+         if not content and 'content' in result:
+            content = result['content']
+      elif isinstance(result, list) and len(result) > 0:
+         if isinstance(result[-1], dict) and 'content' in result[-1]:
+            content = result[-1]['content']
+      elif hasattr(result, 'content'):
+         content = result.content
+      else:
+         content = str(result)
 
-    def execute_function_call(fc):
-        if fc and isinstance(fc, dict) and 'name' in fc and 'parameters' in fc:
-            function_name = fc['name']
-            arguments = fc['parameters']
-            if function_name == "emitir_nfse":
-                from app.agents.nfse_agent import emitir_nfse
-                result = emitir_nfse(arguments)
-            elif function_name == "buscar_nfse":
-                from app.agents.nfse_agent import buscar_nfse
-                result = buscar_nfse(**arguments)
-            elif function_name == "cancelar_nfse":
-                from app.agents.nfse_agent import cancelar_nfse
-                result = cancelar_nfse(**arguments)
-            else:
-                result = f"Função desconhecida: {function_name}"
-            if isinstance(result, str):
-                result = re.sub(r"print\\((.*?)\\)", r"\\1", result, flags=re.DOTALL)
-            return result
-        return None
-
-    print(f"Resposta bruta do OpenRouter: {content}")
-
-    content_json = is_json(content)
-    if content_json:
-        fc = content_json.get('function_call')
-        result = execute_function_call(fc)
-        if result is not None:
-            return result
-        else:
-            return content_json
-    else:
-        return content
+      # Detecta e executa function_call
+      import json
+      try:
+         content_json = json.loads(content)
+         fc = content_json.get('function_call')
+         if fc and isinstance(fc, dict) and 'name' in fc and 'parameters' in fc:
+            func_name = fc['name']
+            params = fc['parameters']
+            if func_name == 'emitir_nfse':
+               return emitir_nfse(params)
+            elif func_name == 'buscar_nfse':
+               return buscar_nfse(params)
+            elif func_name == 'cancelar_nfse':
+               return cancelar_nfse(params)
+      except Exception:
+         pass
+      return content
+   except Exception as e:
+      return f"Erro LangChain: {str(e)}"

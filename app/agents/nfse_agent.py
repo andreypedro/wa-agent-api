@@ -5,14 +5,15 @@ Esta função simula o processo e pode ser adaptada para integração real com A
 
 from typing import Dict
 
-def emitir_nfse(dados: Dict) -> str:
+def emitir_nfse(input: Dict) -> str:
     # Simulação de emissão
-    nome = dados.get('nome', 'Cliente')
-    valor = dados.get('valor', '0.00')
-    descricao = dados.get('descricao', 'Descrição não informada')
-    cnae = dados.get('cnae', 'CNAE não informado')
-    item_servico = dados.get('item_servico', 'Item de serviço não informado')
-    # Aqui você pode integrar com API real e buscar dados do cliente pelo nome
+    nome = input.get('nome', 'Cliente')
+    valor = input.get('valor', '0.00')
+    descricao = input.get('descricao', 'Descrição não informada')
+    cnae = input.get('cnae', 'CNAE não informado')
+    item_servico = input.get('item_servico', 'Item de serviço não informado')
+    
+    
     return (
         f"NFS-e emitida para {nome}.\n"
         f"Descrição: {descricao}\n"
@@ -23,8 +24,12 @@ def emitir_nfse(dados: Dict) -> str:
     )
 
 
-def buscar_nfse(id_nfse=None, numero=None, nome=None, status=None) -> str:
+def buscar_nfse(input: Dict) -> str:
     # Simulação de busca
+    id_nfse = input.get('id_nfse')
+    numero = input.get('numero')
+    nome = input.get('nome')
+    status = input.get('status')
     notas = [
         {
             'numero': '2025001',
@@ -61,6 +66,9 @@ def buscar_nfse(id_nfse=None, numero=None, nome=None, status=None) -> str:
     return f"Notas encontradas: {encontradas}"
 
 
-def cancelar_nfse(id_nfse=None, numero=None) -> str:
+    # Cancel simulation
+def cancelar_nfse(input: Dict) -> str:
+    id_nfse = input.get('id_nfse')
+    numero = input.get('numero')
     nfse_id = id_nfse or numero or 'Desconhecido'
     return f"Nota fiscal {nfse_id} cancelada com sucesso (simulação)."
