@@ -1,45 +1,45 @@
 # WA Agent API
 
-Este projeto é uma API para agentes de WhatsApp e Telegram, integrando modelos de IA via OpenRouter e funções de NFSe.
+This project is an API for WhatsApp and Telegram agents, integrating AI models via OpenRouter and NFSe functions.
 
-## Requisitos
+## Requirements
 
 - Python 3.9+
-- Instalar dependências: `pip install -r requirements.txt`
-- Configurar variáveis de ambiente (pode usar um arquivo `.env`):
-  - `OPENROUTER_TOKEN` (token da OpenRouter)
-  - `OPENROUTER_MODEL` (opcional, modelo a ser usado)
+- Install dependencies: `pip install -r requirements.txt`
+- Set environment variables (you can use a `.env` file):
+  - `OPENROUTER_TOKEN` (OpenRouter token)
+  - `OPENROUTER_MODEL` (optional, model to use)
 
-## Como rodar a API
+## How to run the API
 
-1. Inicie o servidor FastAPI (usando Uvicorn):
+1. Start the FastAPI server (using Uvicorn):
 
    ```bash
    python3 -m uvicorn main:app --reload
    ```
 
-   O servidor estará disponível em `http://localhost:8000`.
+   The server will be available at `http://localhost:8000`.
 
-2. Para rodar o bot do Telegram:
-   - Configure o token do bot no arquivo de configuração.
-   - Execute o bot (exemplo):
+2. To run the Telegram bot:
+   - Set the bot token in the configuration file.
+   - Run the bot (example):
      ```bash
      python3 app/telegram/bot.py
      ```
 
-## Estrutura do projeto
+## Project structure
 
-- `main.py`: Ponto de entrada da API.
-- `app/agents/nfse_agent.py`: Funções de NFSe.
-- `app/core/openrouter_client.py`: Cliente para integração com OpenRouter.
-- `app/telegram/bot.py`: Bot do Telegram.
-- `app/whatsapp/`: (estrutura para integração WhatsApp)
+- `main.py`: API entry point.
+- `app/agents/nfse_agent.py`: NFSe functions.
+- `app/core/openrouter_client.py`: OpenRouter integration client.
+- `app/telegram/bot.py`: Telegram bot.
+- `app/whatsapp/`: (structure for WhatsApp integration)
 
-## Observações
+## Notes
 
-- O projeto utiliza LangChain para integração com modelos de IA.
-- As funções de NFSe são chamadas automaticamente quando o modelo retorna JSON com `function_call`.
+- The project uses LangChain for AI model integration.
+- NFSe functions are automatically called when the model returns JSON with `function_call`.
 
-## Dúvidas
+## Questions
 
-Abra uma issue ou entre em contato com o mantenedor.
+Open an issue or contact the maintainer.
