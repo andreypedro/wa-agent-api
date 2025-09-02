@@ -13,6 +13,17 @@ def get_buscar_nfse_function():
         }
     }
 
+# Function to get all last nfses
+def get_all_nfse_function():
+    return {
+        "name": "get_all_nfse",
+        "description": "Busca todas as notas fiscais de serviço (NFS-e) emitidas.",
+        "parameters": {
+            "type": "object",
+            "properties": {}
+        }
+    }
+
 # Função para cancelar nota fiscal de serviço
 def get_cancelar_nfse_function():
     return {

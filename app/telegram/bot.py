@@ -5,21 +5,44 @@ from dotenv import load_dotenv
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
 from app.core.openrouter_client import ask_openrouter
+from app.agents.nfse_agent import emitir_nfse, buscar_nfse, cancelar_nfse, get_all_nfse
 
 load_dotenv()
 
 TELEGRAM_WELCOME = 'Bem-vindo! Como posso ajudar?'
-SYSTEM_PROMPT = (
-    'Você é uma assistente da Agilize Contabilidade Online. Responda sempre em português (PT-BR), de forma breve e direta, como se estivesse digitando pelo celular. '
-    'Use as funções disponíveis para emitir, buscar ou cancelar notas fiscais, e nunca invente dados ao retornar resultados dessas funções. '
-    'Execute a ação solicitada e retorne o resultado ao usuário, sem prometer nada. '
-    'Se não puder realizar uma ação, explique de forma clara e educada. '
-    'Quando precisar executar uma função, sempre retorne no formato JSON: {"function_call": {"name": "nome_funcao", "parameters": { ... }}}. Nunca invente dados e nunca mude esse formato.'
-    'Funções disponíveis e parâmetros:'
-    '\n- emitir_nfse(dados: {nome, valor, descricao, cnae, item_servico})'
-    '\n- buscar_nfse(id_nfse, numero, nome, status)'
-    '\n- cancelar_nfse(id_nfse, numero)'
-)
+def get_functions_prompt():
+   functions = [
+      {
+         "name": "emitir_nfse",
+         "params": emitir_nfse.__annotations__
+      },
+      {
+         "name": "buscar_nfse",
+         "params": buscar_nfse.__annotations__
+      },
+      {
+         "name": "cancelar_nfse",
+         "params": cancelar_nfse.__annotations__
+      },
+      {
+         "name": "get_all_nfse",
+         "params": get_all_nfse.__annotations__
+      }
+   ]
+   prompt = (
+      'Você é uma assistente da Agilize Contabilidade Online. Responda sempre em português (PT-BR), de forma breve e direta, como se estivesse digitando pelo celular. '
+      'Use as funções disponíveis para emitir, buscar ou cancelar notas fiscais, e nunca invente dados ao retornar resultados dessas funções. '
+      'Execute a ação solicitada e retorne o resultado ao usuário, sem prometer nada. '
+      'Se não puder realizar uma ação, explique de forma clara e educada. '
+      'Quando precisar executar uma função, sempre retorne no formato JSON: {"function_call": {"name": "nome_funcao", "parameters": { ... }}}. Nunca invente dados e nunca mude esse formato.'
+      'Funções disponíveis e parâmetros:\n'
+   )
+   for func in functions:
+      params = ', '.join(func["params"].keys())
+      prompt += f'- {func["name"]}({params})\n'
+   return prompt
+
+SYSTEM_PROMPT = get_functions_prompt()
 
 
 OPENROUTER_MODEL = 'google/gemini-flash-1.5'
@@ -47,7 +70,10 @@ class TelegramBot:
         user_message = update.message.text
         print(f"Mensagem recebida do usuário: {user_message}")
         response = ask_openrouter(user_message, SYSTEM_PROMPT)
-        if not response or not response.strip():
+        # Se for lista, junta os itens em uma string
+        if isinstance(response, list):
+            response = '\n'.join(str(item) for item in response)
+        if not response or (isinstance(response, str) and not response.strip()):
             response = 'Desculpe, não consegui gerar uma resposta.'
         await update.message.reply_text(response)
 

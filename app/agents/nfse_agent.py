@@ -63,7 +63,65 @@ def buscar_nfse(input: Dict) -> str:
     encontradas = [n for n in notas if match(n)]
     if not encontradas:
         return "Nenhuma NFS-e encontrada com os filtros fornecidos."
-    return f"Notas encontradas: {encontradas}"
+    resultado = []
+    for nota in encontradas:
+        resultado.append(
+            f"Número: {nota['numero']}\n"
+            f"Nome: {nota['nome']}\n"
+            f"Valor: R$ {nota['valor']}\n"
+            f"Descrição: {nota['descricao']}\n"
+            f"CNAE: {nota['cnae']}\n"
+            f"Item de serviço: {nota['item_servico']}\n"
+            f"Status: {nota['status']}\n"
+        )
+
+    if(resultado and len(resultado) == 1):
+        return "Aqui está a nota encontrada 😎\n\n" + "\n".join(resultado)
+
+    return "Aqui estão as notas encontradas 😄\n\n" + "\n".join(resultado)
+
+def get_all_nfse(input: Dict) -> str:
+
+    user_id = input.get('user_id')
+
+    notas = [
+        {
+            'numero': '2025001',
+            'nome': 'João Silva',
+            'valor': '1500.00',
+            'descricao': 'Consultoria',
+            'cnae': '1234',
+            'item_servico': '01.01',
+            'status': 'Emitida'
+        },
+        {
+            'numero': '2025002',
+            'nome': 'Maria Souza',
+            'valor': '800.00',
+            'descricao': 'Design gráfico',
+            'cnae': '5678',
+            'item_servico': '02.02',
+            'status': 'Emitida'
+        }
+    ]
+
+    lastNfses = list(reversed(notas))[:5]
+
+    if not lastNfses:
+        return "Nenhuma NFS-e emitida até o momento."
+    resultado = []
+    for nota in lastNfses:
+      resultado.append(
+         f"Número: {nota['numero']}\n"
+         f"Nome: {nota['nome']}\n"
+         f"Valor: R$ {nota['valor']}\n"
+         f"Descrição: {nota['descricao']}\n"
+         f"CNAE: {nota['cnae']}\n"
+         f"Item de serviço: {nota['item_servico']}\n"
+         f"Status: {nota['status']}\n"
+         " "
+      )
+    return "Ok! Aqui estão as últimas notas emitidas:\n\n" + "\n".join(resultado)
 
 
     # Cancel simulation
