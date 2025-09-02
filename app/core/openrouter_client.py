@@ -2,15 +2,16 @@ import json
 
 def process_response(response: str):
    """
-   Limpa o retorno, identifica se é JSON ou texto.
-   Se for texto, retorna o texto limpo.
-   Se for JSON com função, executa a função correspondente.
-   Suporta também o padrão function_call usado pelo modelo.
+   Cleans the response, identifies if it is JSON or text.
+   If it is text, returns the cleaned text.
+   If it is JSON with a function, executes the corresponding function.
+   Also supports the function_call pattern used by the model.
    """
    cleaned = response.strip()
-   # Remove blocos de código markdown
+   # Remove markdown blocks
    cleaned = cleaned.replace('```json', '').replace('```', '')
-   # Se houver múltiplas linhas, processa cada uma
+
+   # if there are multiple lines, process each one
    lines = [line for line in cleaned.splitlines() if line.strip()]
    results = []
    for line in lines:
@@ -27,9 +28,9 @@ def process_response(response: str):
          else:
             results.append(data)
       except Exception:
-         # Não é JSON, retorna texto limpo
+         # Not json, return cleaned line
          results.append(line)
-   # Retorna lista se múltiplos, ou único se só um
+
    if len(results) == 1:
       return results[0]
    return results
@@ -53,16 +54,16 @@ def execute_function_from_json(fc: dict):
       elif func_name == 'get_all_nfse':
          from app.agents.nfse_agent import get_all_nfse
          return get_all_nfse(params)
-      elif func_name == 'exemplo':
-         return exemplo_funcao(**params)
+      elif func_name == 'exemple':
+         return example(**params)
       else:
-         return f"Função '{func_name}' não implementada."
+         return f"Function '{func_name}' not implemented."
    except Exception as func_err:
       return f"Function call error: {func_name} - {func_err}"
 
-def exemplo_funcao(**kwargs):
-   # Exemplo de função chamada via JSON
-   return f"Função exemplo chamada com argumentos: {kwargs}"
+def example(**kwargs):
+   # Function example
+   return f"Function example called with arguments: {kwargs}"
 import os
 import re
 from dotenv import load_dotenv
@@ -97,7 +98,7 @@ def ask_openrouter(user_message: str, system_prompt: str = None) -> str:
 
    try:
       result = llm.invoke(messages)
-      # Extrai o conteúdo da resposta
+      # Extracts the response content
       content = None
       if isinstance(result, dict):
          if 'choices' in result and isinstance(result['choices'], list):
