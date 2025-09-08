@@ -13,9 +13,8 @@ def ask_ollama(prompt: str) -> str:
     try:
         response = requests.post(OLLAMA_API_URL, json=payload, timeout=30)
         response.raise_for_status()
-        # Ollama pode retornar múltiplos objetos JSON em linhas separadas
         raw = response.text.strip()
-        # Tenta pegar o último objeto JSON válido
+        
         import json
         if '\n' in raw:
             lines = [line for line in raw.split('\n') if line.strip()]

@@ -69,8 +69,8 @@ class TelegramBot:
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_message = update.message.text
         print(f"Mensagem recebida do usuário: {user_message}")
-        response = ask_openrouter(user_message, SYSTEM_PROMPT)
-        # Se for lista, junta os itens em uma string
+        from app.core.openrouter_client import ask_agno
+        response = ask_agno(user_message)
         if isinstance(response, list):
             response = '\n'.join(str(item) for item in response)
         if not response or (isinstance(response, str) and not response.strip()):
