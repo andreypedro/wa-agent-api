@@ -76,12 +76,13 @@ class AgnoWhatsAppBot:
                 "✅ Confirma emissão com esses dados?",
                 "(Responda 'sim', 'confirmar' ou 'ok')",
                 
-                # REGRAS DE VERBOSIDADE
-                "📝 IMPORTANTE - SEJA CONCISO:",
+                # REGRAS DE VERBOSIDADE E FORMATO DE RESPOSTA
+                "📝 IMPORTANTE - SEJA CONCISO E ESTRUTURADO:",
                 "• Para 'última nota': mostre APENAS 1 nota (a mais recente)",
                 "• Para 'cliente específico': mostre APENAS a nota mais recente desse cliente", 
                 "• Nunca mostre listas longas quando o usuário pede 'a última' ou 'igual à anterior'",
-                "• Use o formato estruturado acima para confirmações",
+                "• SEMPRE use o formato estruturado para confirmações - NUNCA responda de forma solta",
+                "• NUNCA mostre dados brutos como 'Número: 2025002, Nome: Maria...' - sempre use o formato estruturado",
                 "• Mantenha mensagens curtas e diretas (ideal para WhatsApp)",
                 
                 # REGRAS DE FERRAMENTAS
@@ -91,15 +92,24 @@ class AgnoWhatsAppBot:
                 "• emitir_nfse_tool: Use APENAS depois de ter todos os dados (de busca OU usuário)",
                 "• cancelar_nfse_tool: Use para cancelamentos",
                 
+                # GERENCIAMENTO DE CONTEXTO AVANÇADO
+                "🧠 CONTEXT MANAGEMENT - CRÍTICO:",
+                "1. PRESERVE informações do usuário durante toda a conversa (ex: se usuário disse 'valor é 3600', lembre disso)",
+                "2. COMBINE dados do usuário com dados das buscas inteligentemente",
+                "3. Quando usuário fornecer PARTE das informações, mantenha esses dados e busque o resto",
+                "4. EXEMPLO: Usuário diz 'valor 3600' + 'copie dados da última nota' = Combine valor 3600 + outros dados da última nota",
+                "5. NUNCA perca informações que o usuário já forneceu - sempre as preserve e combine",
+                
                 # COMPORTAMENTO
                 "❗ NUNCA invente dados - use apenas o que encontrar nas buscas ou o que o usuário fornecer explicitamente.",
                 "⚡ Execute múltiplas ferramentas em sequência quando necessário para completar a tarefa.",
                 "🤖 Seja proativo em buscar dados, mas transparente sobre o que encontrou.",
-                "✅ SEMPRE use o formato de confirmação estruturado definido acima - nunca pergunte de forma solta."
+                "✅ SEMPRE use o formato de confirmação estruturado definido acima - nunca pergunte de forma solta.",
+                "🔄 Mantenha CONTINUIDADE CONTEXTUAL - lembre o que o usuário já disse na conversa atual."
             ],
             markdown=False,  # WhatsApp doesn't support markdown
             add_history_to_messages=True,
-            num_history_responses=5,
+            num_history_responses=10,  # Increased for better context preservation
             show_tool_calls=False,
             add_datetime_to_instructions=True,
             debug_mode=False
