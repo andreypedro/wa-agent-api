@@ -41,19 +41,25 @@ class AgnoTelegramBot:
                 cancelar_nfse_tool,
                 get_all_nfse_tool
             ],
-            instructions="""
-            Você é uma assistente da Agilize Contabilidade Online. 
-            Responda sempre em português (PT-BR), de forma breve e direta, como se estivesse digitando pelo celular.
-            Use as funções disponíveis para emitir, buscar ou cancelar notas fiscais, e nunca invente dados ao retornar resultados dessas funções.
-            Execute a ação solicitada e retorne o resultado ao usuário, sem prometer nada.
-            Se não puder realizar uma ação, explique de forma clara e educada.
-            Seja profissional, mas amigável nas suas respostas.
-            """,
+            instructions=[
+                "Você é uma assistente especializada da Agilize Contabilidade Online.",
+                "Responda sempre em português (PT-BR), de forma breve e direta, como se estivesse digitando pelo celular.",
+                "SEMPRE use as funções disponíveis quando o usuário solicitar operações de NFSe.",
+                "Para emitir notas: use emitir_nfse_tool com TODOS os parâmetros obrigatórios",
+                "Para buscar notas: use buscar_nfse_tool com os filtros fornecidos",
+                "Para listar notas: use get_all_nfse_tool",
+                "Para cancelar notas: use cancelar_nfse_tool",
+                "NUNCA invente dados ao retornar resultados das funções - apenas retorne o que as funções retornarem.",
+                "Se o usuário não fornecer todos os dados necessários, pergunte especificamente o que está faltando.",
+                "Execute a ação solicitada e retorne o resultado sem promessas desnecessárias.",
+                "Seja profissional, mas amigável nas suas respostas."
+            ],
             markdown=True,
             add_history_to_messages=True,
             num_history_responses=5,
-            show_tool_calls=True,
-            add_datetime_to_instructions=True
+            show_tool_calls=False,  # Hide internal tool calls from user
+            add_datetime_to_instructions=True,
+            debug_mode=False
         )
         
         # Configure timeout settings for M4 Mac Docker environment
@@ -114,31 +120,46 @@ class AgnoTelegramBot:
         user_message = update.message.text
         user_id = str(update.effective_user.id)
         
-        print(f"Mensagem recebida do usuário {user_id}: {user_message}")
+        print(f"[AGNO] Mensagem recebida do usuário {user_id}: {user_message}")
         
         try:
-            # Use Agno agent with user context and memory
+            # Use Agno agent with user context and memory - this will automatically
+            # decide when to use tools based on the user's request
             response = await self.agent.arun(
                 message=user_message,
                 user_id=user_id,
                 session_id=f"telegram_{user_id}"
             )
             
-            # Extract response content
+            # Extract response content from Agno agent response
             if hasattr(response, 'content'):
                 response_text = response.content
+            elif hasattr(response, 'messages') and response.messages:
+                # Handle case where response has messages array
+                response_text = response.messages[-1].get('content', str(response))
             else:
                 response_text = str(response)
             
-            # Handle empty responses
+            # Validate response
             if not response_text or (isinstance(response_text, str) and not response_text.strip()):
                 response_text = 'Desculpe, não consegui gerar uma resposta. Pode tentar reformular sua pergunta?'
-                
-            print(f"Resposta enviada para usuário {user_id}: {response_text[:100]}...")
-            await update.message.reply_text(response_text, parse_mode='Markdown')
+            
+            # Log tools usage for debugging
+            if hasattr(response, 'tool_calls') and response.tool_calls:
+                tool_names = [tool.get('name', 'unknown') for tool in response.tool_calls]
+                print(f"[AGNO] Ferramentas usadas pelo agente: {', '.join(tool_names)}")
+            
+            print(f"[AGNO] Resposta enviada para usuário {user_id}: {response_text[:100]}...")
+            
+            # Try to send with Markdown first, fallback to plain text if parsing fails
+            try:
+                await update.message.reply_text(response_text, parse_mode='Markdown')
+            except Exception as parse_error:
+                print(f"[AGNO] Markdown parsing failed, sending as plain text: {parse_error}")
+                await update.message.reply_text(response_text)
             
         except Exception as e:
-            logging.error(f"Error processing message from user {user_id}: {str(e)}")
+            logging.error(f"[AGNO] Error processing message from user {user_id}: {str(e)}")
             error_msg = "❌ Ops! Ocorreu um erro ao processar sua mensagem. Tente novamente em alguns instantes."
             await update.message.reply_text(error_msg)
 

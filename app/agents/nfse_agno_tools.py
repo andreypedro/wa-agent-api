@@ -2,7 +2,7 @@ from agno.tools import tool
 from typing import Dict, Optional
 from app.agents.nfse_agent import emitir_nfse, buscar_nfse, cancelar_nfse, get_all_nfse
 
-@tool(show_result=True)
+@tool(show_result=True, stop_after_tool_call=False)
 def emitir_nfse_tool(nome: str, valor: str, descricao: str, cnae: str, item_servico: str) -> str:
     """Emite uma nota fiscal de serviço eletrônica.
     
@@ -25,7 +25,7 @@ def emitir_nfse_tool(nome: str, valor: str, descricao: str, cnae: str, item_serv
     }
     return emitir_nfse(params)
 
-@tool(show_result=True)
+@tool(show_result=True, stop_after_tool_call=False)
 def buscar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None, 
                      nome: Optional[str] = None, status: Optional[str] = None) -> str:
     """Busca notas fiscais eletrônicas por diferentes filtros.
@@ -51,7 +51,7 @@ def buscar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None
     
     return buscar_nfse(params)
 
-@tool(show_result=True)
+@tool(show_result=True, stop_after_tool_call=False)
 def cancelar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None) -> str:
     """Cancela uma nota fiscal de serviço eletrônica.
     
@@ -70,7 +70,7 @@ def cancelar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = No
     
     return cancelar_nfse(params)
 
-@tool(show_result=True)
+@tool(show_result=True, stop_after_tool_call=False)
 def get_all_nfse_tool(user_id: Optional[str] = None) -> str:
     """Retorna todas as notas fiscais de um usuário.
     
