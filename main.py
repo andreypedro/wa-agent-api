@@ -23,7 +23,7 @@ def read_root():
     return {
         'message': 'Agilize NFSe API com Agno está rodando!',
         'framework': 'Agno',
-        'model': 'google/gemini-2.0-flash-exp via OpenRouter',
+        'model': 'google/gemini-2.5-flash via OpenRouter',
         'features': ['NFSe Operations', 'Conversation Memory', 'Tool Integration']
     }
 

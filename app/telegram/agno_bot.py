@@ -32,7 +32,7 @@ class AgnoTelegramBot:
             name="Assistente Agilize NFSe",
             agent_id="agilize_nfse_bot",
             model=OpenRouter(
-                id="google/gemini-2.0-flash-exp",
+                id="google/gemini-2.5-flash",
                 api_key=os.getenv('OPENROUTER_TOKEN')
             ),
             tools=[
