@@ -5,7 +5,7 @@ Esta função simula o processo e pode ser adaptada para integração real com A
 
 from typing import Dict
 
-def emitir_nfse(input: Dict) -> str:
+def create(input: Dict) -> str:
     # Simulação de emissão
     nome = input.get('nome', 'Cliente')
     valor = input.get('valor', '0.00')
@@ -24,7 +24,7 @@ def emitir_nfse(input: Dict) -> str:
     )
 
 
-def buscar_nfse(input: Dict) -> str:
+def get_one(input: Dict) -> str:
     # Simulação de busca
     id_nfse = input.get('id_nfse')
     numero = input.get('numero')
@@ -63,11 +63,11 @@ def buscar_nfse(input: Dict) -> str:
     encontradas = [n for n in notas if match(n)]
     if not encontradas:
         return {"notas": [], "mensagem": "Nenhuma NFS-e encontrada com os filtros fornecidos."}
-    
+
     encontradas.sort(key=lambda x: int(x['numero']), reverse=True)
     return {"notas": [encontradas[0]]}
 
-def get_all_nfse(input: Dict) -> str:
+def get_all(input: Dict) -> str:
 
     user_id = input.get('user_id')
 
@@ -100,7 +100,7 @@ def get_all_nfse(input: Dict) -> str:
 
 
     # Cancel simulation
-def cancelar_nfse(input: Dict) -> str:
+def cancel(input: Dict) -> str:
     id_nfse = input.get('id_nfse')
     numero = input.get('numero')
     nfse_id = id_nfse or numero or 'Desconhecido'

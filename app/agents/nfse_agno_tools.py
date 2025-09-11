@@ -1,14 +1,14 @@
 from agno.tools import tool
 from typing import Dict, Optional
-from app.agents.nfse_agent import emitir_nfse, buscar_nfse, cancelar_nfse, get_all_nfse
+from app.utils.nfse_methods import create, get_one, cancel, get_all
 
 @tool(show_result=True, stop_after_tool_call=False)
-def emitir_nfse_tool(nome: str, valor: str, descricao: str, cnae: str, item_servico: str) -> str:
+def emit_nfse_tool(nome: str, valor: str, descricao: str, cnae: str, item_servico: str) -> str:
     """Emite uma nota fiscal de serviço eletrônica.
     
     IMPORTANTE: Use esta ferramenta APENAS depois de ter todos os parâmetros obrigatórios.
     Se o usuário mencionar 'como a anterior' ou 'igual ao cliente X', 
-    PRIMEIRO busque os dados usando buscar_nfse_tool ou get_all_nfse_tool.
+    PRIMEIRO busque os dados usando get_one_nfse_tool ou get_all_nfse_tool.
     
     Args:
         nome: Nome do cliente (obrigatório)
@@ -27,10 +27,10 @@ def emitir_nfse_tool(nome: str, valor: str, descricao: str, cnae: str, item_serv
         'cnae': cnae,
         'item_servico': item_servico
     }
-    return emitir_nfse(params)
+    return create(params)
 
 @tool(show_result=True, stop_after_tool_call=False)
-def buscar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None, 
+def get_one_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None, 
                      nome: Optional[str] = None, status: Optional[str] = None) -> str:
     """Busca notas fiscais eletrônicas por diferentes filtros.
     
@@ -56,10 +56,10 @@ def buscar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None
     if status:
         params['status'] = status
     
-    return buscar_nfse(params)
+    return get_one(params)
 
 @tool(show_result=True, stop_after_tool_call=False)
-def cancelar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None) -> str:
+def cancel_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = None) -> str:
     """Cancela uma nota fiscal de serviço eletrônica.
     
     Args:
@@ -75,7 +75,7 @@ def cancelar_nfse_tool(id_nfse: Optional[str] = None, numero: Optional[str] = No
     if numero:
         params['numero'] = numero
     
-    return cancelar_nfse(params)
+    return cancel(params)
 
 @tool(show_result=True, stop_after_tool_call=False)
 def get_all_nfse_tool(user_id: Optional[str] = None) -> str:
@@ -95,4 +95,4 @@ def get_all_nfse_tool(user_id: Optional[str] = None) -> str:
     if user_id:
         params['user_id'] = user_id
     
-    return get_all_nfse(params)
+    return get_all(params)

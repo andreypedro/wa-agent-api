@@ -8,9 +8,9 @@ from agno.agent import Agent
 from agno.models.openrouter import OpenRouter
 
 from app.agents.nfse_agno_tools import (
-    emitir_nfse_tool, 
-    buscar_nfse_tool, 
-    cancelar_nfse_tool, 
+    emit_nfse_tool,
+    get_one_nfse_tool,
+    cancel_nfse_tool,
     get_all_nfse_tool
 )
 
@@ -36,9 +36,9 @@ class AgnoTelegramBot:
                 api_key=os.getenv('OPENROUTER_TOKEN')
             ),
             tools=[
-                emitir_nfse_tool,
-                buscar_nfse_tool,
-                cancelar_nfse_tool,
+                emit_nfse_tool,
+                get_one_nfse_tool,
+                cancel_nfse_tool,
                 get_all_nfse_tool
             ],
             instructions=[
@@ -56,9 +56,9 @@ class AgnoTelegramBot:
                 
                 # FLUXOS DE TRABALHO INTELIGENTES
                 "FLUXO PARA 'CRIAR NOTA COMO A ÚLTIMA PARA [CLIENTE]':",
-                "→ 1) buscar_nfse_tool(nome=[CLIENTE]) para encontrar notas do cliente",
+                "→ 1) get_one_nfse_tool(nome=[CLIENTE]) para encontrar notas do cliente",
                 "→ 2) Extrair dados da nota mais recente (valor, descrição, CNAE, item_servico)", 
-                "→ 3) emitir_nfse_tool usando dados encontrados",
+                "→ 3) emit_nfse_tool usando dados encontrados",
                 
                 "FLUXO PARA 'NOTA IGUAL À ANTERIOR/ÚLTIMA':",
                 "→ 1) get_all_nfse_tool() para encontrar a nota mais recente",
@@ -98,9 +98,9 @@ class AgnoTelegramBot:
                 # REGRAS DE FERRAMENTAS
                 "SEMPRE use as funções disponíveis quando o usuário solicitar operações de NFSe:",
                 "• get_all_nfse_tool: Use para contexto geral, 'última nota', 'últimas notas'",
-                "• buscar_nfse_tool: Use para cliente específico ou critérios específicos",
-                "• emitir_nfse_tool: Use APENAS depois de ter todos os dados (de busca OU usuário)",
-                "• cancelar_nfse_tool: Use para cancelamentos",
+                "• get_one_nfse_tool: Use para cliente específico ou critérios específicos",
+                "• emit_nfse_tool: Use APENAS depois de ter todos os dados (de busca OU usuário)",
+                "• cancel_nfse_tool: Use para cancelamentos",
                 
                 # GERENCIAMENTO DE CONTEXTO AVANÇADO
                 "CONTEXT MANAGEMENT - CRÍTICO:",
