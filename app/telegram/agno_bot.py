@@ -30,9 +30,9 @@ class AgnoTelegramBot:
         # Initialize Agno agent with OpenRouter
         self.agent = Agent(
             name="Assistente Agilize NFSe",
-            agent_id="agilize_nfse_bot",
+            # agent_id="agilize_nfse_bot",
             model=OpenRouter(
-                id="google/gemini-2.5-flash",
+                id=os.getenv('OPENROUTER_MODEL', 'google/gemini-2.5-flash'),
                 api_key=os.getenv('OPENROUTER_TOKEN')
             ),
             tools=[
@@ -51,6 +51,8 @@ class AgnoTelegramBot:
                 "2. Analise os resultados para extrair dados similares (cliente, valores, descrições, CNAE, item_servico)",
                 "3. Use esses dados como base para novas operações",
                 "4. SÓ pergunte ao usuário dados que NÃO conseguir encontrar nas notas existentes",
+                "5. Não retorne o texto em formato JSON - sempre converta para um formato amigável conforme instruções a segguir.",
+
                 
                 # FLUXOS DE TRABALHO INTELIGENTES
                 "FLUXO PARA 'CRIAR NOTA COMO A ÚLTIMA PARA [CLIENTE]':",
@@ -63,9 +65,19 @@ class AgnoTelegramBot:
                 "→ 2) MOSTRAR APENAS A ÚLTIMA NOTA encontrada (não uma lista)",
                 "→ 3) Usar formato de confirmação estruturado (ver abaixo)",
                 "→ 4) Aguardar confirmação do usuário antes de emitir",
+
+                # FORMATO DE VISUALIZAÇÃO DE NFS ESTRUTURADO
+                "QUANDO MOSTRAR DADOS DE UMA NOTA FISCAL DE SERVIÇO JÁ EMITIDA, use este formato EXATO:",
+                "📄 **Dados da última nota encontrada:**",
+                "#️⃣ Número: [NUMERO]",
+                "👤 Cliente: [NOME]",
+                "💰 Valor: R$ [VALOR]", 
+                "📋 Descrição: [DESCRIÇÃO]",
+                "🏢 CNAE: [CNAE]",
+                "🔧 Item serviço: [ITEM]",
                 
                 # FORMATO DE CONFIRMAÇÃO ESTRUTURADO
-                "QUANDO MOSTRAR DADOS PARA CONFIRMAÇÃO, use este formato EXATO:",
+                "QUANDO MOSTRAR DADOS PARA CONFIRMAÇÃO PARA EMISSÃO DE UMA NOVA NOTA FISCAL DE SERVIÇO, use este formato EXATO:",
                 "📄 **Dados da última nota encontrada:**",
                 "👤 Cliente: [NOME]",
                 "💰 Valor: R$ [VALOR]", 
@@ -106,10 +118,10 @@ class AgnoTelegramBot:
                 "Mantenha CONTINUIDADE CONTEXTUAL - lembre o que o usuário já disse na conversa atual."
             ],
             markdown=True,
-            add_history_to_messages=True,
-            num_history_responses=10,  # Increased for better context preservation
-            show_tool_calls=False,  # Hide internal tool calls from user
-            add_datetime_to_instructions=True,
+            # add_history_to_messages=True,
+            # num_history_responses=10,  # Increased for better context preservation
+            # show_tool_calls=False,  # Hide internal tool calls from user
+            # add_datetime_to_instructions=True,
             debug_mode=False
         )
         
@@ -177,7 +189,7 @@ class AgnoTelegramBot:
             # Use Agno agent with user context and memory - this will automatically
             # decide when to use tools based on the user's request
             response = await self.agent.arun(
-                message=user_message,
+                input=user_message,
                 user_id=user_id,
                 session_id=f"telegram_{user_id}"
             )
