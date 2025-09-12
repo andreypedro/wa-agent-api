@@ -5,7 +5,7 @@ Esta função simula o processo e pode ser adaptada para integração real com A
 
 from typing import Dict
 
-def emitir_nfse(input: Dict) -> str:
+def create(input: Dict) -> str:
     # Simulação de emissão
     nome = input.get('nome', 'Cliente')
     valor = input.get('valor', '0.00')
@@ -24,7 +24,7 @@ def emitir_nfse(input: Dict) -> str:
     )
 
 
-def buscar_nfse(input: Dict) -> str:
+def get_one(input: Dict) -> str:
     # Simulação de busca
     id_nfse = input.get('id_nfse')
     numero = input.get('numero')
@@ -62,25 +62,12 @@ def buscar_nfse(input: Dict) -> str:
         return True
     encontradas = [n for n in notas if match(n)]
     if not encontradas:
-        return "Nenhuma NFS-e encontrada com os filtros fornecidos."
-    resultado = []
-    for nota in encontradas:
-        resultado.append(
-            f"Número: {nota['numero']}\n"
-            f"Nome: {nota['nome']}\n"
-            f"Valor: R$ {nota['valor']}\n"
-            f"Descrição: {nota['descricao']}\n"
-            f"CNAE: {nota['cnae']}\n"
-            f"Item de serviço: {nota['item_servico']}\n"
-            f"Status: {nota['status']}\n"
-        )
+        return {"notas": [], "mensagem": "Nenhuma NFS-e encontrada com os filtros fornecidos."}
 
-    if(resultado and len(resultado) == 1):
-        return "Aqui está a nota encontrada 😎\n\n" + "\n".join(resultado)
+    encontradas.sort(key=lambda x: int(x['numero']), reverse=True)
+    return {"notas": [encontradas[0]]}
 
-    return "Aqui estão as notas encontradas 😄\n\n" + "\n".join(resultado)
-
-def get_all_nfse(input: Dict) -> str:
+def get_all(input: Dict) -> str:
 
     user_id = input.get('user_id')
 
@@ -108,24 +95,12 @@ def get_all_nfse(input: Dict) -> str:
     lastNfses = list(reversed(notas))[:5]
 
     if not lastNfses:
-        return "Nenhuma NFS-e emitida até o momento."
-    resultado = []
-    for nota in lastNfses:
-      resultado.append(
-         f"Número: {nota['numero']}\n"
-         f"Nome: {nota['nome']}\n"
-         f"Valor: R$ {nota['valor']}\n"
-         f"Descrição: {nota['descricao']}\n"
-         f"CNAE: {nota['cnae']}\n"
-         f"Item de serviço: {nota['item_servico']}\n"
-         f"Status: {nota['status']}\n"
-         " "
-      )
-    return "Ok! Aqui estão as últimas notas emitidas:\n\n" + "\n".join(resultado)
+        return {"notas": [], "mensagem": "Nenhuma NFS-e emitida até o momento."}
+    return {"notas": lastNfses}
 
 
     # Cancel simulation
-def cancelar_nfse(input: Dict) -> str:
+def cancel(input: Dict) -> str:
     id_nfse = input.get('id_nfse')
     numero = input.get('numero')
     nfse_id = id_nfse or numero or 'Desconhecido'

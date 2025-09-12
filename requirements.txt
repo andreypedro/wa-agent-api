@@ -1,7 +1,7 @@
 fastapi
 uvicorn
 python-dotenv
-langchain
-langchain-openai
+agno
+openai
 python-telegram-bot
 requests
