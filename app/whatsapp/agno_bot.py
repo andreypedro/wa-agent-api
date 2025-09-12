@@ -9,9 +9,9 @@ from agno.agent import Agent
 from agno.models.openrouter import OpenRouter
 
 from app.agents.nfse_agno_tools import (
-    emitir_nfse_tool, 
-    buscar_nfse_tool, 
-    cancelar_nfse_tool, 
+    emit_nfse_tool, 
+    get_one_nfse_tool, 
+    cancel_nfse_tool, 
     get_all_nfse_tool
 )
 from app.whatsapp.client import WhatsAppClient
@@ -29,15 +29,15 @@ class AgnoWhatsAppBot:
         # Initialize Agno agent with same configuration as Telegram bot
         self.agent = Agent(
             name="Assistente Agilize NFSe WhatsApp",
-            agent_id="agilize_nfse_whatsapp_bot",
+            # agent_id="agilize_nfse_whatsapp_bot",
             model=OpenRouter(
                 id="google/gemini-2.5-flash",
                 api_key=os.getenv('OPENROUTER_TOKEN')
             ),
             tools=[
-                emitir_nfse_tool,
-                buscar_nfse_tool,
-                cancelar_nfse_tool,
+                emit_nfse_tool,
+                get_one_nfse_tool,
+                cancel_nfse_tool,
                 get_all_nfse_tool
             ],
             instructions=[
@@ -54,9 +54,9 @@ class AgnoWhatsAppBot:
                 
                 # FLUXOS DE TRABALHO INTELIGENTES
                 "📋 FLUXO PARA 'CRIAR NOTA COMO A ÚLTIMA PARA [CLIENTE]':",
-                "→ 1) buscar_nfse_tool(nome=[CLIENTE]) para encontrar notas do cliente",
+                "→ 1) get_one_nfse_tool(nome=[CLIENTE]) para encontrar notas do cliente",
                 "→ 2) Extrair dados da nota mais recente (valor, descrição, CNAE, item_servico)", 
-                "→ 3) emitir_nfse_tool usando dados encontrados",
+                "→ 3) emit_nfse_tool usando dados encontrados",
                 
                 "🔄 FLUXO PARA 'NOTA IGUAL À ANTERIOR/ÚLTIMA':",
                 "→ 1) get_all_nfse_tool() para encontrar a nota mais recente",
@@ -88,10 +88,10 @@ class AgnoWhatsAppBot:
                 # REGRAS DE FERRAMENTAS
                 "🛠️ SEMPRE use as funções disponíveis quando o usuário solicitar operações de NFSe:",
                 "• get_all_nfse_tool: Use para contexto geral, 'última nota', 'últimas notas'",
-                "• buscar_nfse_tool: Use para cliente específico ou critérios específicos",
-                "• emitir_nfse_tool: Use APENAS depois de ter todos os dados (de busca OU usuário)",
-                "• cancelar_nfse_tool: Use para cancelamentos",
-                
+                "• get_one_nfse_tool: Use para cliente específico ou critérios específicos",
+                "• emit_nfse_tool: Use APENAS depois de ter todos os dados (de busca OU usuário)",
+                "• cancel_nfse_tool: Use para cancelamentos",
+
                 # GERENCIAMENTO DE CONTEXTO AVANÇADO
                 "🧠 CONTEXT MANAGEMENT - CRÍTICO:",
                 "1. PRESERVE informações do usuário durante toda a conversa (ex: se usuário disse 'valor é 3600', lembre disso)",
@@ -108,10 +108,10 @@ class AgnoWhatsAppBot:
                 "🔄 Mantenha CONTINUIDADE CONTEXTUAL - lembre o que o usuário já disse na conversa atual."
             ],
             markdown=False,  # WhatsApp doesn't support markdown
-            add_history_to_messages=True,
-            num_history_responses=10,  # Increased for better context preservation
-            show_tool_calls=False,
-            add_datetime_to_instructions=True,
+            # add_history_to_messages=True,
+            # num_history_responses=10,  # Increased for better context preservation
+            # show_tool_calls=False,
+            # add_datetime_to_instructions=True,
             debug_mode=False
         )
     
@@ -194,7 +194,7 @@ class AgnoWhatsAppBot:
                     
                     # Process with Agno agent
                     response = await self.agent.arun(
-                        message=text_content,
+                        input=text_content,
                         user_id=from_number,
                         session_id=f"whatsapp_{from_number}"
                     )

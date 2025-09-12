@@ -75,13 +75,13 @@ if ENABLE_WHATSAPP:
     async def whatsapp_webhook_receive(request: Request):
         """Receive WhatsApp webhook messages"""
         try:
-            # Get raw body for signature verification
+            # # Get raw body for signature verification
             body = await request.body()
-            signature = request.headers.get('x-hub-signature-256', '')
+            # signature = request.headers.get('x-hub-signature-256', '')
             
-            # Verify signature
-            if not whatsapp_bot.verify_webhook_signature(body, signature):
-                raise HTTPException(status_code=403, detail="Invalid signature")
+            # # Verify signature
+            # if not whatsapp_bot.verify_webhook_signature(body, signature):
+            #     raise HTTPException(status_code=403, detail="Invalid signature")
             
             # Parse JSON data
             webhook_data = json.loads(body)

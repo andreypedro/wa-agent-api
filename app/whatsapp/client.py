@@ -29,6 +29,8 @@ class WhatsAppClient:
         async with self.rate_limit_semaphore:
             try:
                 url = f"{self.base_url}/{self.phone_number_id}/messages"
+
+                print(f"Sending message to {url}")
                 
                 payload = {
                     "messaging_product": "whatsapp",
