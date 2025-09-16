@@ -5,3 +5,4 @@ agno
 openai
 python-telegram-bot
 requests
+sqlalchemy

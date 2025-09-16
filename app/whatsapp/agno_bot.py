@@ -9,11 +9,12 @@ from agno.agent import Agent
 from agno.models.openrouter import OpenRouter
 
 from app.agents.nfse_agno_tools import (
-    emit_nfse_tool, 
-    get_one_nfse_tool, 
-    cancel_nfse_tool, 
+    emit_nfse_tool,
+    get_one_nfse_tool,
+    cancel_nfse_tool,
     get_all_nfse_tool
 )
+from app.core.database import get_database_storage
 from app.whatsapp.client import WhatsAppClient
 from app.whatsapp.config import WHATSAPP_APP_SECRET, WHATSAPP_WEBHOOK_VERIFY_TOKEN
 
@@ -25,7 +26,10 @@ class AgnoWhatsAppBot:
     def __init__(self):
         # Initialize WhatsApp client
         self.client = WhatsAppClient()
-        
+
+        # Initialize database storage for chat history
+        db_storage = get_database_storage()
+
         # Initialize Agno agent with same configuration as Telegram bot
         self.agent = Agent(
             name="Assistente Agilize NFSe WhatsApp",
@@ -34,6 +38,7 @@ class AgnoWhatsAppBot:
                 id="google/gemini-2.5-flash",
                 api_key=os.getenv('OPENROUTER_TOKEN')
             ),
+            db=db_storage,
             tools=[
                 emit_nfse_tool,
                 get_one_nfse_tool,
@@ -108,10 +113,9 @@ class AgnoWhatsAppBot:
                 "🔄 Mantenha CONTINUIDADE CONTEXTUAL - lembre o que o usuário já disse na conversa atual."
             ],
             markdown=False,  # WhatsApp doesn't support markdown
-            # add_history_to_messages=True,
-            # num_history_responses=10,  # Increased for better context preservation
-            # show_tool_calls=False,
-            # add_datetime_to_instructions=True,
+            add_history_to_context=True,
+            num_history_runs=5,  # Remember last 5 interactions
+            add_datetime_to_context=True,
             debug_mode=False
         )
     

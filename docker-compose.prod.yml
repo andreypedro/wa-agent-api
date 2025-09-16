@@ -1,0 +1,43 @@
+version: "3.8"
+services:
+  wa-agent-api:
+    build: .
+    env_file:
+      - .env
+    ports:
+      - "8000:8000"
+    restart: unless-stopped
+    volumes:
+      # Only mount database directory for persistence (no source code mounting)
+      - ./data:/app/data
+      - ./.env:/app/.env
+    environment:
+      # Use persistent database path
+      - DATABASE_URL=sqlite:///./data/chat_history.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: PostgreSQL for production scale
+  # postgres:
+  #   image: postgres:15-alpine
+  #   environment:
+  #     POSTGRES_DB: chat_history
+  #     POSTGRES_USER: agno_user
+  #     POSTGRES_PASSWORD: your_secure_password
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   restart: unless-stopped
+
+# volumes:
+#   postgres_data:

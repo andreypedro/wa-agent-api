@@ -7,7 +7,18 @@ services:
     ports:
       - "8000:8000"
     restart: unless-stopped
-
     volumes:
+      # Mount source code for development (hot reload)
       - ./app:/app/app
       - ./.env:/app/.env
+      # Mount database directory for persistence
+      - ./data:/app/data
+    environment:
+      # Override database path for Docker container
+      - DATABASE_URL=sqlite:///./data/chat_history.db
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s

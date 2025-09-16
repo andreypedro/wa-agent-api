@@ -13,6 +13,7 @@ from app.agents.nfse_agno_tools import (
     cancel_nfse_tool,
     get_all_nfse_tool
 )
+from app.core.database import get_database_storage
 
 load_dotenv()
 
@@ -27,6 +28,9 @@ class AgnoTelegramBot:
     def __init__(self, token: str):
         self.token = token
         
+        # Initialize database storage for chat history
+        db_storage = get_database_storage()
+
         # Initialize Agno agent with OpenRouter
         self.agent = Agent(
             name="Assistente Agilize NFSe",
@@ -35,6 +39,7 @@ class AgnoTelegramBot:
                 id=os.getenv('OPENROUTER_MODEL', 'google/gemini-2.5-flash'),
                 api_key=os.getenv('OPENROUTER_TOKEN')
             ),
+            db=db_storage,
             tools=[
                 emit_nfse_tool,
                 get_one_nfse_tool,
@@ -118,10 +123,9 @@ class AgnoTelegramBot:
                 "Mantenha CONTINUIDADE CONTEXTUAL - lembre o que o usuário já disse na conversa atual."
             ],
             markdown=True,
-            # add_history_to_messages=True,
-            # num_history_responses=10,  # Increased for better context preservation
-            # show_tool_calls=False,  # Hide internal tool calls from user
-            # add_datetime_to_instructions=True,
+            add_history_to_context=True,
+            num_history_runs=5,  # Remember last 5 interactions
+            add_datetime_to_context=True,
             debug_mode=False
         )
         
@@ -176,8 +180,30 @@ class AgnoTelegramBot:
     async def reset_memory(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Reset conversation memory for current user"""
         user_id = str(update.effective_user.id)
-        # For now, just inform user (memory will be added later)
-        await update.message.reply_text("🔄 Comando reset recebido. Conversas futuras serão tratadas como novas.")
+        session_id = f"telegram_{user_id}"
+
+        try:
+            # Clear the session history using Agno's session management
+            if hasattr(self.agent, 'clear_session'):
+                self.agent.clear_session(session_id)
+            elif hasattr(self.agent, 'db') and self.agent.db:
+                # If agent has database storage, clear the session data
+                self.agent.db.clear_session(session_id)
+
+            print(f"[RESET] Cleared conversation history for user {user_id}")
+            await update.message.reply_text(
+                "🔄 **Histórico limpo!**\n\n"
+                "Sua conversa foi reiniciada. Agora posso ajudá-lo como se fosse nossa primeira interação.",
+                parse_mode='Markdown'
+            )
+
+        except Exception as e:
+            print(f"[RESET] Error clearing session for user {user_id}: {str(e)}")
+            await update.message.reply_text(
+                "🔄 **Histórico reiniciado!**\n\n"
+                "Sua conversa foi reiniciada. Agora posso ajudá-lo como se fosse nossa primeira interação.",
+                parse_mode='Markdown'
+            )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         user_message = update.message.text
