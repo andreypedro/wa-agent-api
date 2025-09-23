@@ -3,9 +3,13 @@ from fastapi.responses import PlainTextResponse
 import os
 import asyncio
 import json
+from datetime import datetime
 from typing import Dict, Any
 
-app = FastAPI(title="Agilize NFSe API with Agno", version="1.0.0")
+from app.workflows.lead_workflow import get_lead_conversion_workflow
+from app.models.lead_models import ChatRequest, ChatResponse, ConversationContext
+
+app = FastAPI(title="Lead Conversion API with Agno", version="2.0.0")
 
 # Initialize bots based on environment variables
 ENABLE_TELEGRAM = os.getenv('ENABLE_TELEGRAM', 'false').lower() == 'true'
@@ -32,13 +36,20 @@ async def startup_event():
 @app.get('/')
 def read_root():
     return {
-        'message': 'Agilize NFSe API com Agno está rodando!',
+        'message': 'Lead Conversion API com Agno está rodando!',
         'framework': 'Agno',
         'model': 'google/gemini-2.5-flash via OpenRouter',
-        'features': ['NFSe Operations', 'Conversation Memory', 'Tool Integration'],
+        'features': ['Lead Conversion State Machine', 'Brazilian Accounting Services', 'Multi-channel Support'],
+        'workflow_stages': ['greeting', 'qualification', 'data_collection', 'objection_handling', 'conversion', 'nurturing', 'completed'],
+        'qualification_threshold': 'R$ 5.000/mês',
         'channels': {
             'telegram': ENABLE_TELEGRAM,
             'whatsapp': ENABLE_WHATSAPP
+        },
+        'endpoints': {
+            'chat': '/chat',
+            'session': '/session/{session_id}',
+            'health': '/health'
         }
     }
 
@@ -47,11 +58,96 @@ def health_check():
     return {
         'status': 'healthy',
         'framework': 'agno',
+        'workflow': 'lead_conversion',
         'channels': {
             'telegram_enabled': ENABLE_TELEGRAM,
             'whatsapp_enabled': ENABLE_WHATSAPP
         }
     }
+
+@app.post('/chat', response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    """
+    Main chat endpoint for testing the lead conversion workflow.
+    """
+    try:
+        print(f"[API] Received request: message='{request.message}', session_id='{request.session_id}'")
+
+        # Generate session ID if not provided
+        session_id = request.session_id or f"api_{datetime.now().timestamp()}"
+
+        # Create workflow instance
+        print(f"[API] Creating workflow with session_id: {session_id}")
+        workflow = get_lead_conversion_workflow(session_id=session_id)
+
+        # Process message
+        responses = []
+        for workflow_response in workflow.run(request.message):
+            if workflow_response.content:
+                responses.append(workflow_response.content)
+
+        # Get context for response metadata
+        context = workflow._get_context()
+
+        return ChatResponse(
+            session_id=session_id,
+            responses=responses,
+            stage=context.stage.value,
+            qualified=context.is_qualified if context.lead_data.renda_mensal else None,
+            qualification_reason=context.qualification_reason,
+            context={
+                'turns': context.conversation_turns,
+                'fields_collected': context.fields_collected,
+                'income': context.lead_data.renda_mensal,
+                'name': context.lead_data.nome_completo,
+                'email': context.lead_data.email
+            }
+        )
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
+
+@app.get('/session/{session_id}')
+async def get_session_info(session_id: str):
+    """
+    Get session information and current state.
+    """
+    try:
+        workflow = get_lead_conversion_workflow(session_id=session_id)
+        context = workflow._get_context()
+
+        return {
+            'session_id': session_id,
+            'stage': context.stage.value,
+            'conversation_turns': context.conversation_turns,
+            'qualified': context.is_qualified,
+            'qualification_reason': context.qualification_reason,
+            'session_expired': context.is_session_expired(),
+            'lead_data': context.lead_data.model_dump(exclude_none=True),
+            'fields_collected': context.fields_collected,
+            'messages_count': len(context.messages_exchanged)
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"Sessão não encontrada: {str(e)}")
+
+@app.delete('/session/{session_id}')
+async def reset_session(session_id: str):
+    """
+    Reset/clear a session.
+    """
+    try:
+        workflow = get_lead_conversion_workflow(session_id=session_id)
+        workflow.reset()
+
+        return {
+            'session_id': session_id,
+            'status': 'reset',
+            'message': 'Sessão reiniciada com sucesso'
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao resetar sessão: {str(e)}")
 
 # WhatsApp webhook endpoints
 if ENABLE_WHATSAPP:
