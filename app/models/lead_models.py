@@ -17,6 +17,7 @@ class ConversationStage(str, Enum):
     """Conversation stages aligned with the Agilize onboarding journey."""
 
     INICIAL = "inicial"
+    CONFIRMACAO_INICIAL = "confirmacao_inicial"
     QUALIFICACAO = "qualificacao"
     PROPOSTA = "proposta"
     CONTRATACAO = "contratacao"
@@ -70,6 +71,7 @@ class ConversationContext(BaseModel):
     lead_data: LeadData = Field(default_factory=LeadData)
 
     # Journey specific blocks
+    initial_confirmation: Dict[str, Any] = Field(default_factory=dict)
     business_profile: Dict[str, Any] = Field(default_factory=dict)
     proposal_status: Dict[str, Any] = Field(default_factory=dict)
     contract_data: Dict[str, Any] = Field(default_factory=dict)

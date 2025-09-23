@@ -31,6 +31,7 @@ logger = logging.getLogger(__name__)
 # Ordered flow of the primary states (excludes special states like PAUSADO/ABANDONADO)
 PRIMARY_STAGE_SEQUENCE: List[ConversationStage] = [
     ConversationStage.INICIAL,
+    ConversationStage.CONFIRMACAO_INICIAL,
     ConversationStage.QUALIFICACAO,
     ConversationStage.PROPOSTA,
     ConversationStage.CONTRATACAO,
@@ -105,6 +106,10 @@ FIELD_SECTION_MAP: Dict[str, Tuple[str, str]] = {
     "complemento": ("company_profile", "complemento"),
     "endereco_completo": ("company_profile", "endereco_completo"),
     "endereco_confirmado": ("company_profile", "endereco_confirmado"),
+    # Initial confirmation
+    "confirmacao_inicial": ("initial_confirmation", "confirmado"),
+    "dados_corretos": ("initial_confirmation", "confirmado"),
+    "precisa_ajustar": ("initial_confirmation", "precisa_ajustar"),
     # Review
     "revisao_confirmada": ("review_status", "confirmado"),
     "precisa_editar": ("review_status", "precisa_editar"),
@@ -194,14 +199,26 @@ class LeadConversionWorkflow(WorkflowV2):
         stage_instructions: Dict[ConversationStage, List[str]] = {
             ConversationStage.INICIAL: [
                 "Você é 'Maria', assistente virtual da Agilize.",
-                "🚨🚨🚨 REGRA INVIOLÁVEL: TODA resposta DEVE terminar com uma pergunta específica.",
-                "NUNCA diga apenas 'Que ótimo!' ou 'Perfeito!' sem uma pergunta imediata.",
-                "SEMPRE use este formato: [1 frase de saudação] + [pergunta direta]",
-                "Se falta nome: 'Olá! Como posso te chamar?'",
-                "Se falta interesse: 'Ótimo, [nome]! Você está pensando em abrir sua primeira empresa ou já tem uma?'",
-                "Se usuário diz 'quero abrir empresa': 'Que ótimo! Como posso te chamar?'",
-                "Se ambos coletados: 'Perfeito! Seu negócio será de comércio, serviços ou indústria?'",
-                "JAMAIS termine sem uma pergunta que exija resposta do cliente.",
+                "🚨 MISSÃO ESPECIAL: Coletar máximo de informações na primeira interação.",
+                "SEMPRE comece pedindo para o usuário falar livremente sobre suas necessidades.",
+                "PERGUNTA INICIAL OBRIGATÓRIA:",
+                "'Olá! Sou a Maria da Agilize. Para te ajudar da melhor forma, conte-me livremente (por escrito ou áudio se preferir) sobre seu negócio: que tipo de empresa quer abrir, se terá sócios, suas expectativas de faturamento, ou qualquer detalhe que achar importante!'",
+                "APÓS receber resposta livre com informações, avance IMEDIATAMENTE para confirmacao_inicial.",
+                "EXTRAIA TUDO: nome, tipo de empresa, sócios, faturamento, estrutura, email, telefone, etc.",
+                "NÃO faça resumo aqui - deixe isso para o estágio de confirmação.",
+            ],
+            ConversationStage.CONFIRMACAO_INICIAL: [
+                "🎯 MISSÃO: Confirmar dados extraídos da resposta livre do usuário.",
+                "SEMPRE faça um resumo organizado do que você entendeu:",
+                "'Com base no que você me contou, entendi que você quer:'",
+                "'✅ [Tipo de interesse - ex: Abrir sua primeira empresa]'",
+                "'✅ [Tipo de negócio - ex: Empresa de serviços de pintura]'",
+                "'✅ [Estrutura - ex: Trabalhar sozinho, sem sócios]'",
+                "'✅ [Faturamento - ex: Expectativa de faturar mais de R$81 mil]'",
+                "'✅ [Outros dados coletados - nome, email, etc.]'",
+                "SEMPRE termine com: 'Está correto? Precisa ajustar alguma coisa?'",
+                "Se usuário confirmar: avance para próximo estágio com dados faltantes.",
+                "Se usuário corrigir: ajuste os dados e confirme novamente.",
             ],
             ConversationStage.QUALIFICACAO: [
                 "MISSÃO: Coletar tipo de negócio, estrutura societária e validações.",
@@ -323,11 +340,16 @@ class LeadConversionWorkflow(WorkflowV2):
             "   - extracted: objeto com pares campo:valor relevantes (ex: nome_cliente, tipo_interesse, tipo_negocio, estrutura_societaria, numero_socios, faturamento_mei_ok, aceite_proposta, motivo_objecao, metodo_assinatura, contrato_assinado, rg_frente, rg_verso, comprovante_residencia, nome_fantasia, razao_social, capital_social, participacoes, cnae_principal, cnaes_secundarios, cnaes_confirmados, endereco_tipo, cidade_escritorio_virtual, cep, endereco_confirmado, revisao_confirmada, processo_status, processo_finalizado, cnpj).",
             "   - next_stage: estágio sugerido quando os dados obrigatórios da etapa atual estiverem completos.",
             "5. Utilize true/false para valores booleanos e formate números apenas com dígitos (sem R$).",
-            "6. IMPORTANTE: Extraia informações implícitas das respostas do usuário:",
-            "   - Se o usuário diz 'quero abrir empresa' ou similar, extraia tipo_interesse: 'primeira_empresa'",
-            "   - Se o usuário confirma algo com 'sim', 'aceito', 'confirmado', extraia o campo booleano relevante como true",
-            "   - Se o usuário expressa interesse geral em negócio sem especificar tipo, extraia tipo_negocio: 'servicos'",
-            "   - Se o usuário diz 'vamos', 'próximo', 'avançar', considere como confirmação para prosseguir",
+            "6. EXTRAIA MÁXIMO DE INFORMAÇÕES POSSÍVEL de cada resposta do usuário:",
+            "   - Nome: qualquer menção de nome próprio",
+            "   - Tipo interesse: 'primeira_empresa' se quer abrir, 'nova_empresa' se já tem uma",
+            "   - Tipo negócio: 'comercio' (loja, venda), 'servicos' (prestação), 'industria' (fabricação), 'misto'",
+            "   - Estrutura: 'mei' (até 81k), 'socios' (com parceiros), 'indefinido' (não sabe)",
+            "   - Faturamento MEI: true se mencionar até 81k, false se mais que isso",
+            "   - Número sócios: extraia quantidade se mencionada",
+            "   - Email, telefone, CPF: extraia se fornecidos",
+            "   - Aceite proposta: true para 'sim', 'aceito', 'vamos', 'ok'",
+            "   - SEMPRE extraia tudo que conseguir identificar, mesmo que não seja pergunta atual",
             "7. Nunca mantenha next_stage no mesmo estágio se não houver campos pendentes; avance para o próximo estágio do fluxo.",
             "8. Caso detecte necessidade de pausa, defina next_stage como 'pausado'; se o cliente desistir, use 'abandonado'.",
             "",
@@ -508,10 +530,17 @@ class LeadConversionWorkflow(WorkflowV2):
         missing: List[str] = []
 
         if stage == ConversationStage.INICIAL:
-            if not lead.nome_completo:
-                missing.append("nome do cliente")
-            if not lead.tipo_interesse:
-                missing.append("tipo de interesse")
+            # For INICIAL stage, we need some basic information to proceed to confirmation
+            # If we have ANY meaningful data, we can proceed to confirmation
+            has_basic_info = (lead.nome_completo or lead.tipo_interesse or
+                            business.get("tipo_negocio") or business.get("estrutura_societaria"))
+            if not has_basic_info:
+                missing.append("informações básicas sobre suas necessidades")
+        elif stage == ConversationStage.CONFIRMACAO_INICIAL:
+            # For confirmation stage, we need user to confirm the extracted data
+            initial_confirmation = getattr(context, 'initial_confirmation', {})
+            if not initial_confirmation.get("confirmado"):
+                missing.append("confirmação dos dados extraídos")
         elif stage == ConversationStage.QUALIFICACAO:
             if not business.get("tipo_negocio"):
                 missing.append("tipo de negócio")
@@ -1163,6 +1192,41 @@ class LeadConversionWorkflow(WorkflowV2):
                 # Use the storage's upsert method with the workflow session
                 # This bypasses the broken write_to_storage() method
                 self.storage.upsert(self.workflow_session)
+
+                # Real-time data logging for monitoring
+                context = self._context
+                if context:
+                    print(f"💾 [DATA SAVED] Session: {self.session_id}")
+                    print(f"   Stage: {context.stage.value if context.stage else 'None'}")
+
+                    # Lead data
+                    if context.lead_data:
+                        lead = context.lead_data
+                        if lead.nome_cliente or lead.nome_completo:
+                            print(f"   Nome: {lead.nome_cliente or lead.nome_completo}")
+                        if lead.tipo_interesse:
+                            print(f"   Interesse: {lead.tipo_interesse}")
+                        if lead.email:
+                            print(f"   Email: {lead.email}")
+                        if lead.telefone:
+                            print(f"   Telefone: {lead.telefone}")
+                        if lead.cpf:
+                            print(f"   CPF: {lead.cpf}")
+
+                    # Business profile
+                    if hasattr(context, 'business_profile') and context.business_profile:
+                        business = context.business_profile
+                        if business.get('tipo_negocio'):
+                            print(f"   Negócio: {business['tipo_negocio']}")
+                        if business.get('estrutura_societaria'):
+                            print(f"   Estrutura: {business['estrutura_societaria']}")
+
+                    # Proposal status
+                    if hasattr(context, 'proposal_status') and context.proposal_status:
+                        if context.proposal_status.get('aceite_proposta'):
+                            print(f"   Proposta Aceita: {context.proposal_status['aceite_proposta']}")
+
+                    print()
 
         except Exception as exc:
             logger.warning("Failed to save session state to database: %s", exc)
