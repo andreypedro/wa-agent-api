@@ -64,6 +64,7 @@ FIELD_SECTION_MAP: Dict[str, Tuple[str, str]] = {
     "observacao_qualificacao": ("business_profile", "observacao"),
     # Proposal
     "aceite_proposta": ("proposal_status", "aceite_proposta"),
+    "aceite": ("proposal_status", "aceite_proposta"),
     "motivo_objecao": ("proposal_status", "motivo_objecao"),
     "objecao_resolvida": ("proposal_status", "objecao_resolvida"),
     # Contract
@@ -122,6 +123,7 @@ FIELD_SECTION_MAP: Dict[str, Tuple[str, str]] = {
 BOOL_KEYS = {
     "faturamento_mei_ok",
     "aceite_proposta",
+    "aceite",
     "objecao_resolvida",
     "contrato_assinado",
     "documento_valido",
@@ -713,6 +715,9 @@ class LeadConversionWorkflow(WorkflowV2):
         # keep qualification flag updated
         context.check_qualification()
 
+        # Infer missing structured choices from latest messages when LLM did not emit them
+        self._apply_fallback_inferences(context)
+
     def _coerce_value(self, key: str, value: Any) -> Any:
         if value is None:
             return None
@@ -750,6 +755,102 @@ class LeadConversionWorkflow(WorkflowV2):
             if len(digits) == 11:
                 return f"{digits[:3]}.{digits[3:6]}.{digits[6:9]}-{digits[9:]}"
             return None
+        if key == "tipo_interesse":
+            normalized = re.sub(r"[^a-z0-9 ]", "", str(value).lower()).strip()
+            mapping = {
+                "1": "primeira_empresa",
+                "primeira": "primeira_empresa",
+                "primeira empresa": "primeira_empresa",
+                "abrindo primeira empresa": "primeira_empresa",
+                "primeira_empresa": "primeira_empresa",
+                "2": "nova_empresa",
+                "nova": "nova_empresa",
+                "nova empresa": "nova_empresa",
+                "abrindo nova empresa": "nova_empresa",
+                "tenho outras": "nova_empresa",
+                "tenho outra": "nova_empresa",
+                "nova_empresa": "nova_empresa",
+                "3": "conhecendo",
+                "conhecendo": "conhecendo",
+                "apenas conhecendo": "conhecendo",
+                "somente conhecendo": "conhecendo",
+                "curioso": "conhecendo",
+            }
+            return mapping.get(normalized)
+        if key == "tipo_negocio":
+            normalized = re.sub(r"[^a-z ]", "", str(value).lower()).strip()
+            mapping = {
+                "comercio": "comercio",
+                "comércio": "comercio",
+                "venda": "comercio",
+                "produtos": "comercio",
+                "servicos": "servicos",
+                "serviços": "servicos",
+                "servico": "servicos",
+                "serviço": "servicos",
+                "consultoria": "servicos",
+                "industria": "industria",
+                "indústria": "industria",
+                "industrial": "industria",
+                "fabricacao": "industria",
+                "fabricação": "industria",
+                "misto": "misto",
+                "comercio servicos": "misto",
+                "comércio serviços": "misto",
+                "comercio e servicos": "misto",
+                "comércio e serviços": "misto",
+            }
+            return mapping.get(normalized, normalized or None)
+        if key == "estrutura_societaria":
+            normalized = re.sub(r"[^a-z ]", "", str(value).lower()).strip()
+            mapping = {
+                "mei": "mei",
+                "sozinho": "mei",
+                "individual": "mei",
+                "sem socios": "mei",
+                "sem sócios": "mei",
+                "socios": "socios",
+                "sócios": "socios",
+                "com socios": "socios",
+                "com sócios": "socios",
+                "sociedade": "socios",
+                "ltda": "socios",
+                "indefinido": "indefinido",
+                "ainda nao sei": "indefinido",
+                "ainda não sei": "indefinido",
+                "nao sei": "indefinido",
+                "não sei": "indefinido",
+            }
+            return mapping.get(normalized, normalized or None)
+        if key == "metodo_assinatura":
+            normalized = re.sub(r"[^a-z ]", "", str(value).lower()).strip()
+            mapping = {
+                "sms": "sms",
+                "celular": "sms",
+                "telefone": "sms",
+                "mensagem": "sms",
+                "email": "email",
+                "e mail": "email",
+                "e-mail": "email",
+                "whatsapp": "whatsapp",
+                "zap": "whatsapp",
+            }
+            return mapping.get(normalized, normalized or None)
+        if key == "endereco_tipo":
+            normalized = re.sub(r"[^a-z ]", "", str(value).lower()).strip()
+            mapping = {
+                "virtual": "virtual",
+                "escritorio virtual": "virtual",
+                "escritório virtual": "virtual",
+                "residencial": "residencial",
+                "casa": "residencial",
+                "comercial": "comercial",
+                "escritorio proprio": "comercial",
+                "escritório proprio": "comercial",
+                "escritorio próprio": "comercial",
+                "escritório próprio": "comercial",
+            }
+            return mapping.get(normalized, normalized or None)
         if isinstance(value, str):
             return value.strip()
         return value
@@ -758,6 +859,47 @@ class LeadConversionWorkflow(WorkflowV2):
     def _track_field_collection(context: ConversationContext, field_name: str) -> None:
         if field_name not in context.fields_collected:
             context.fields_collected.append(field_name)
+
+    def _apply_fallback_inferences(self, context: ConversationContext) -> None:
+        latest_user_message = next(
+            (m["content"].lower() for m in reversed(context.messages_exchanged) if m.get("role") == "user"),
+            "",
+        )
+
+        # Infer tipo_interesse if still missing
+        if not context.lead_data.tipo_interesse and latest_user_message:
+            context.lead_data.tipo_interesse = self._infer_tipo_interesse(latest_user_message)
+            if context.lead_data.tipo_interesse:
+                self._track_field_collection(context, "tipo_interesse")
+
+        # Infer estrutura societária if not set yet
+        if not context.business_profile.get("estrutura_societaria") and latest_user_message:
+            inferred = self._infer_estrutura_societaria(latest_user_message)
+            if inferred:
+                context.business_profile["estrutura_societaria"] = inferred
+                self._track_field_collection(context, "business_profile.estrutura_societaria")
+
+    @staticmethod
+    def _infer_tipo_interesse(user_text: str) -> Optional[str]:
+        cleaned = re.sub(r"[^a-z0-9 ]", "", user_text.lower()).strip()
+        if any(token in cleaned for token in ["1", "primeira"]):
+            return "primeira_empresa"
+        if any(token in cleaned for token in ["2", "nova", "outra", "outras"]):
+            return "nova_empresa"
+        if any(token in cleaned for token in ["3", "conhecendo", "curios", "avaliando"]):
+            return "conhecendo"
+        return None
+
+    @staticmethod
+    def _infer_estrutura_societaria(user_text: str) -> Optional[str]:
+        cleaned = re.sub(r"[^a-z ]", "", user_text.lower()).strip()
+        if any(token in cleaned for token in ["sozinho", "mei", "individual"]):
+            return "mei"
+        if "socio" in cleaned or "sócio" in cleaned or "socios" in cleaned:
+            return "socios"
+        if "nao sei" in cleaned or "não sei" in cleaned or "duvida" in cleaned:
+            return "indefinido"
+        return None
 
     # ------------------------------------------------------------------
     # Utilities
