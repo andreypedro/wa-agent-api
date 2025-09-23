@@ -17,12 +17,11 @@ from typing import Any, Dict, Iterator, List, Optional, Tuple
 
 from agno.agent import Agent, RunResponse
 from agno.models.openrouter import OpenRouter
-from agno.run.v2.workflow import WorkflowRunResponse
 from agno.workflow.v2.router import Router
 from agno.workflow.v2.step import Step
 from agno.workflow.v2.steps import Steps
 from agno.workflow.v2.types import StepInput, StepOutput
-from agno.workflow.v2.workflow import Workflow as WorkflowV2
+from agno.workflow.v2.workflow import Workflow as WorkflowV2, WorkflowRunResponse
 
 from app.core.database import get_agent_storage, get_workflow_storage
 from app.models.lead_models import ConversationContext, ConversationStage
@@ -194,68 +193,96 @@ class LeadConversionWorkflow(WorkflowV2):
 
         stage_instructions: Dict[ConversationStage, List[str]] = {
             ConversationStage.INICIAL: [
-                "Receba o lead como 'Maria', assistente virtual da Agilize.",
-                "Objetivo imediato: coletar o nome (sem números) e entender o tipo de interesse (primeira empresa, nova empresa, conhecendo).",
-                "Valide gentilmente nomes muito curtos ou com caracteres inválidos.",
-                "Assim que nome e tipo_interesse estiverem coletados, prepare a passagem obrigatória para QUALIFICACAO.",
+                "Você é 'Maria', assistente virtual da Agilize.",
+                "🚨🚨🚨 REGRA INVIOLÁVEL: TODA resposta DEVE terminar com uma pergunta específica.",
+                "NUNCA diga apenas 'Que ótimo!' ou 'Perfeito!' sem uma pergunta imediata.",
+                "SEMPRE use este formato: [1 frase de saudação] + [pergunta direta]",
+                "Se falta nome: 'Olá! Como posso te chamar?'",
+                "Se falta interesse: 'Ótimo, [nome]! Você está pensando em abrir sua primeira empresa ou já tem uma?'",
+                "Se usuário diz 'quero abrir empresa': 'Que ótimo! Como posso te chamar?'",
+                "Se ambos coletados: 'Perfeito! Seu negócio será de comércio, serviços ou indústria?'",
+                "JAMAIS termine sem uma pergunta que exija resposta do cliente.",
             ],
             ConversationStage.QUALIFICACAO: [
-                "Explique que fará perguntas rápidas e objetivas.",
-                "Colete tipo_negocio (comercio, servicos, industria, misto) e estrutura_societaria (mei, socios, indefinido).",
-                "Se estrutura for 'mei', confirme se o faturamento anual ficará até R$81 mil (campo faturamento_mei_ok).",
-                "Se houver sócios, pergunte o número de sócios (1-10).",
-                "Mantenha tom consultivo e mostre benefícios. Ao concluir dados dessa etapa, avance para PROPOSTA.",
+                "MISSÃO: Coletar tipo de negócio, estrutura societária e validações.",
+                "🚨 OBRIGATÓRIO: TODA resposta DEVE terminar com uma pergunta específica.",
+                "Se falta tipo_negocio: termine com 'Seu negócio será de comércio, serviços, indústria ou algo misto?'",
+                "Se falta estrutura: termine com 'Você pretende abrir como MEI, ter sócios, ou ainda está decidindo?'",
+                "Se MEI e falta validação: termine com 'Seu faturamento anual ficará até R$81 mil?'",
+                "Se sócios e falta número: termine com 'Quantos sócios serão no total?'",
+                "Se tudo coletado: termine com 'Perfeito! Posso apresentar a proposta ideal para você?'",
+                "NUNCA termine sem uma pergunta direta que exija resposta do cliente.",
             ],
             ConversationStage.PROPOSTA: [
-                "Monte proposta personalizada (MEI ou LTDA) com base nas informações coletadas.",
-                "Reforce benefícios (abertura grátis, descontos, prazos).",
-                "Pergunte explicitamente se aceita seguir (aceite_proposta boolean).",
-                "Caso haja objeção, registre motivo_objecao e ofereça esclarecimentos. Após resolver, tente novamente e avance para CONTRATACAO ao receber 'sim'.",
+                "MISSÃO: Apresentar proposta personalizada e obter aceite.",
+                "🚨 OBRIGATÓRIO: TODA resposta DEVE terminar com uma pergunta específica.",
+                "Monte proposta (MEI ou LTDA) com benefícios (abertura grátis, descontos, prazos).",
+                "SEMPRE termine com: 'Aceita seguir com essa proposta?' ou 'Podemos prosseguir com a abertura?'",
+                "Se houver objeção: registre motivo e termine com 'Posso esclarecer alguma dúvida específica?'",
+                "NUNCA termine sem uma pergunta direta que exija resposta do cliente.",
             ],
             ConversationStage.CONTRATACAO: [
-                "Avise que precisará dos dados para contrato." ,
-                "Confirme nome completo, CPF, e-mail, telefone e data de nascimento (DD/MM/AAAA).",
-                "Valide CPF (formato 000.000.000-00) de forma básica (11 dígitos).",
-                "Apresente resumo dos dados e pergunte se estão corretos antes de seguir.",
-                "Solicite método de assinatura (sms, email, whatsapp) e confirme se contrato_assinado=True para avançar.",
+                "MISSÃO: Coletar dados contratuais e obter assinatura.",
+                "🚨 OBRIGATÓRIO: TODA resposta DEVE terminar com uma pergunta específica.",
+                "Se falta nome: termine com 'Qual é o seu nome completo?'",
+                "Se falta CPF: termine com 'Qual é o seu CPF?'",
+                "Se falta email: termine com 'Qual é o seu email?'",
+                "Se falta telefone: termine com 'Qual é o seu telefone?'",
+                "Se falta data nascimento: termine com 'Qual é a sua data de nascimento (DD/MM/AAAA)?'",
+                "Se dados completos mas falta método: termine com 'Como prefere assinar o contrato: SMS, email ou WhatsApp?'",
+                "Se tudo pronto: termine com 'Confirma a assinatura do contrato?'",
+                "NUNCA termine sem uma pergunta direta que exija resposta do cliente.",
             ],
             ConversationStage.COLETA_DOCUMENTOS_PESSOAIS: [
                 "Explique os documentos necessários (RG/CNH frente, verso, comprovante residência, título opcional).",
                 "Solicite uploads um a um, confirmando nitidez e validade.",
+                "SEMPRE termine pedindo o próximo documento específico ou confirmação.",
+                "Se falta documento: 'Agora preciso da foto do [documento específico]'. Se completo: 'Perfeito! Vamos definir sua empresa?'",
                 "Incentive com dicas caso a foto esteja ruim. Ao concluir, motive o cliente para a etapa de definição da empresa.",
             ],
             ConversationStage.DEFINICAO_EMPRESA: [
                 "Celebre: 'vamos criar a identidade da sua empresa'.",
                 "Pergunte nome fantasia desejado e gere (ou aceite) uma razão social sugerida (razao_social).",
                 "Ajude a definir capital social e, se houver sócios, solicite participações (ex.: 60/40).",
+                "SEMPRE termine perguntando pelo próximo dado específico.",
+                "Se falta nome: 'Qual será o nome fantasia da sua empresa?' Se falta capital: 'Qual será o capital social inicial?'",
                 "Confirme os dados antes de seguir para CNAE.",
             ],
             ConversationStage.ESCOLHA_CNAE: [
                 "Peça descrição simples das atividades. Use linguagem acessível ao sugerir CNAEs.",
                 "Apresente atividade principal (cnae_principal) e até duas secundárias.",
+                "SEMPRE termine perguntando pela escolha específica.",
+                "Se falta principal: 'Qual dessas atividades será a principal da sua empresa?' Se falta confirmação: 'Confirma essas atividades?'",
                 "Explique impactos e confirme se cnaes_confirmados=True. Pergunte se deseja adicionar mais atividades.",
             ],
             ConversationStage.ENDERECO_COMERCIAL: [
                 "Apresente opções (escritório virtual recomendado, residencial, comercial).",
                 "Se escolher virtual, ofereça cidades disponíveis e confirme aceite_escritorio_virtual.",
                 "Caso contrário, peça CEP, número, complemento e confirme endereço completo.",
+                "SEMPRE termine perguntando pela escolha ou dado específico.",
+                "Se falta tipo: 'Prefere usar escritório virtual ou seu endereço residencial?' Se falta endereço: 'Qual o CEP do endereço?'",
                 "Reforce benefícios e prepare transição para revisão final.",
             ],
             ConversationStage.REVISAO_FINAL: [
                 "Monte um resumo organizado de todos os dados coletados.",
-                "Pergunte se está tudo correto (revisao_confirmada).",
+                "SEMPRE termine perguntando: 'Está tudo correto? Posso prosseguir com a abertura da sua empresa?'",
                 "Caso queira editar algo, registre campo_para_editar e direcione para o estágio correspondente.",
                 "Após confirmação, destaque termos e prossiga para PROCESSAMENTO.",
             ],
             ConversationStage.PROCESSAMENTO: [
                 "Comunique que o processo de abertura foi iniciado e informe etapas (análise documentação, Junta Comercial, CNPJ etc.).",
                 "Atualize process_status com status/etapa/tempo estimado.",
+                "SEMPRE termine informando o status atual e próximos passos.",
+                "Durante processo: 'Estamos na etapa [X]. Próximo passo: [Y]. Tempo estimado: [Z].'",
                 "Ao finalizar, informe CNPJ e próximos passos e defina processo_finalizado=True para avançar a CONCLUIDO.",
             ],
             ConversationStage.CONCLUIDO: [
-                "Celebre a abertura concluída!", 
-                "Ofereça ajuda com primeiros passos (emitir nota, cadastrar funcionários, app Agilize).",
-                "Mantenha-se disponível para suporte contínuo e incentivo de engajamento.",
+                "🎉 MISSÃO: Celebrar conclusão e encerrar definitivamente.",
+                "⚠️ EXCEÇÃO ÚNICA: Esta é a ÚNICA etapa onde você NÃO faz perguntas.",
+                "Celebre: 'Parabéns! Sua empresa está oficialmente aberta!'",
+                "Informe CNPJ e próximos passos (emitir nota, app Agilize).",
+                "TERMINE OBRIGATORIAMENTE com: 'Este atendimento está CONCLUÍDO. Estarei aqui sempre que precisar!'",
+                "NÃO faça perguntas. NÃO ofereça mais serviços. APENAS celebre e encerre.",
             ],
             ConversationStage.PAUSADO: [
                 "Use mensagens de reengajamento conforme tempo (30min, 2h, 24h, 7 dias).",
@@ -282,16 +309,37 @@ class LeadConversionWorkflow(WorkflowV2):
             '"tipo_negocio": "servicos", "estrutura_societaria": "mei"}, "next_stage": "qualificacao"}'
         )
         return [
+            "🚨🚨🚨 REGRA ABSOLUTA E INVIOLÁVEL 🚨🚨🚨",
+            "VOCÊ É OBRIGADO A TERMINAR TODA RESPOSTA COM UMA PERGUNTA DIRETA.",
+            "NÃO EXISTE EXCEÇÃO. TODA RESPOSTA DEVE COLOCAR A BOLA NA QUADRA DO CLIENTE.",
+            "SE VOCÊ NÃO FIZER UMA PERGUNTA, VOCÊ FALHOU COMPLETAMENTE.",
+            "A ÚNICA EXCEÇÃO é o estágio 'concluido' onde você celebra e encerra definitivamente.",
+            "",
             "FORMATO DE SAÍDA OBRIGATÓRIO:",
-            "1. Responda ao cliente em até 2 frases, em português brasileiro, com tom acolhedor e motivador.",
-            "2. Após a resposta, inclua exatamente a linha '---DATA---'.",
-            "3. Em seguida, retorne JSON com as chaves:",
+            "1. Responda ao cliente em até 1 frase, em português brasileiro, com tom acolhedor.",
+            "2. IMEDIATAMENTE faça uma pergunta específica e direta que move a conversa adiante.",
+            "3. Após a resposta, inclua exatamente a linha '---DATA---'.",
+            "4. Em seguida, retorne JSON com as chaves:",
             "   - extracted: objeto com pares campo:valor relevantes (ex: nome_cliente, tipo_interesse, tipo_negocio, estrutura_societaria, numero_socios, faturamento_mei_ok, aceite_proposta, motivo_objecao, metodo_assinatura, contrato_assinado, rg_frente, rg_verso, comprovante_residencia, nome_fantasia, razao_social, capital_social, participacoes, cnae_principal, cnaes_secundarios, cnaes_confirmados, endereco_tipo, cidade_escritorio_virtual, cep, endereco_confirmado, revisao_confirmada, processo_status, processo_finalizado, cnpj).",
             "   - next_stage: estágio sugerido quando os dados obrigatórios da etapa atual estiverem completos.",
-            "4. Utilize true/false para valores booleanos e formate números apenas com dígitos (sem R$).",
-            "5. Nunca mantenha next_stage no mesmo estágio se não houver campos pendentes; avance para o próximo estágio do fluxo.",
-            "6. Caso detecte necessidade de pausa, defina next_stage como 'pausado'; se o cliente desistir, use 'abandonado'.",
-            f"Exemplo: {example_json}",
+            "5. Utilize true/false para valores booleanos e formate números apenas com dígitos (sem R$).",
+            "6. IMPORTANTE: Extraia informações implícitas das respostas do usuário:",
+            "   - Se o usuário diz 'quero abrir empresa' ou similar, extraia tipo_interesse: 'primeira_empresa'",
+            "   - Se o usuário confirma algo com 'sim', 'aceito', 'confirmado', extraia o campo booleano relevante como true",
+            "   - Se o usuário expressa interesse geral em negócio sem especificar tipo, extraia tipo_negocio: 'servicos'",
+            "   - Se o usuário diz 'vamos', 'próximo', 'avançar', considere como confirmação para prosseguir",
+            "7. Nunca mantenha next_stage no mesmo estágio se não houver campos pendentes; avance para o próximo estágio do fluxo.",
+            "8. Caso detecte necessidade de pausa, defina next_stage como 'pausado'; se o cliente desistir, use 'abandonado'.",
+            "",
+            "EXEMPLOS OBRIGATÓRIOS DE COMO SEMPRE TERMINAR COM PERGUNTA:",
+            "❌ ERRADO: 'Que excelente iniciativa! Abrir uma nova empresa é um passo muito importante.'",
+            "✅ CORRETO: 'Que ótimo! Como posso te chamar?'",
+            "❌ ERRADO: 'É um prazer, Rafael! Com seu nome e interesse, já temos informações importantes.'",
+            "✅ CORRETO: 'Prazer, Rafael! Você está pensando em abrir sua primeira empresa?'",
+            "❌ ERRADO: 'Perfeito! Estou aqui para te ajudar.'",
+            "✅ CORRETO: 'Perfeito! Seu negócio será de comércio, serviços ou indústria?'",
+            "",
+            f"Exemplo JSON: {example_json}",
         ]
 
     # ------------------------------------------------------------------
@@ -360,7 +408,27 @@ class LeadConversionWorkflow(WorkflowV2):
         missing = ", ".join(self._get_missing_fields(stage, context)) or "nenhum campo pendente"
         objective = self._stage_objective(stage)
 
+        # Add specific instruction for pushing conversation forward
+        if stage == ConversationStage.CONCLUIDO:
+            conversation_rule = (
+                "🚨 REGRA ESPECIAL PARA ESTÁGIO CONCLUÍDO 🚨\n"
+                "Este é o ÚNICO estágio onde você NÃO faz perguntas.\n"
+                "Celebre, informe que está concluído, e ENCERRE definitivamente.\n"
+                "TERMINE com: 'Este atendimento está CONCLUÍDO.'"
+            )
+        else:
+            conversation_rule = (
+                "🚨🚨🚨 REGRA ABSOLUTA E INVIOLÁVEL 🚨🚨🚨\n"
+                "VOCÊ É OBRIGADO A TERMINAR SUA RESPOSTA COM UMA PERGUNTA DIRETA.\n"
+                "NÃO EXISTE EXCEÇÃO. NÃO EXISTE DESCULPA.\n"
+                "SE VOCÊ NÃO FIZER UMA PERGUNTA, VOCÊ FALHOU COMPLETAMENTE.\n"
+                "NUNCA diga apenas 'Que ótimo!' ou 'Perfeito!' sem uma pergunta.\n"
+                "SEMPRE termine com: 'Como posso te chamar?' ou 'Seu negócio será de que tipo?' ou similar.\n"
+                "A conversa PARA se você não fizer uma pergunta."
+            )
+
         return (
+            f"{conversation_rule}\n\n"
             "Resumo das últimas mensagens:\n"
             f"{history}\n\n"
             "Visão geral dos dados coletados até agora:\n"
@@ -459,15 +527,23 @@ class LeadConversionWorkflow(WorkflowV2):
             if aceite is not True:
                 missing.append("aceite da proposta")
         elif stage == ConversationStage.CONTRATACAO:
-            if not contract.get("nome_completo"):
+            # Check if we have the required contract data
+            # Data can be in contract_data section or lead_data section
+            nome_completo = contract.get("nome_completo") or lead.nome_completo
+            cpf = contract.get("cpf") or lead.cpf
+            email = contract.get("email") or lead.email
+            telefone = contract.get("telefone") or lead.telefone
+            data_nascimento = contract.get("data_nascimento") or lead.data_nascimento
+
+            if not nome_completo:
                 missing.append("nome completo para contrato")
-            if not contract.get("cpf"):
+            if not cpf:
                 missing.append("CPF")
-            if not contract.get("email"):
+            if not email:
                 missing.append("email para contrato")
-            if not contract.get("telefone"):
+            if not telefone:
                 missing.append("telefone para contrato")
-            if not contract.get("data_nascimento"):
+            if not data_nascimento:
                 missing.append("data de nascimento")
             if not contract.get("metodo_assinatura"):
                 missing.append("método de assinatura")
@@ -566,27 +642,35 @@ class LeadConversionWorkflow(WorkflowV2):
 
     def _determine_primary_stage(self, context: ConversationContext) -> ConversationStage:
         # Keep special states if already set
-        if context.stage in {ConversationStage.PAUSADO, ConversationStage.ABANDONADO}:
+        if context.stage in {ConversationStage.PAUSADO, ConversationStage.ABANDONADO, ConversationStage.CONCLUIDO}:
+            logger.debug(f"Keeping special stage: {context.stage}")
             return context.stage
 
         process_status = context.process_status
         if process_status.get("status") == "abandonado":
+            logger.debug("Process status indicates abandoned")
             return ConversationStage.ABANDONADO
 
         for stage in PRIMARY_STAGE_SEQUENCE:
             if stage == ConversationStage.CONCLUIDO:
                 process_finalizado = context.process_status.get("finalizado")
                 if process_finalizado:
+                    logger.debug("Process finalized, moving to CONCLUIDO")
                     return ConversationStage.CONCLUIDO
                 # otherwise remain in PROCESSAMENTO until finalizado
                 continue
 
             missing = self._get_missing_fields(stage, context)
             if missing:
+                logger.debug(f"Stage {stage.value} has missing fields: {missing}")
                 return stage
+            else:
+                logger.debug(f"Stage {stage.value} is complete, checking next stage")
 
         if context.process_status.get("finalizado"):
+            logger.debug("All stages complete and process finalized")
             return ConversationStage.CONCLUIDO
+        logger.debug("All stages complete, moving to PROCESSAMENTO")
         return ConversationStage.PROCESSAMENTO
 
     def _apply_stage_transition(
@@ -597,7 +681,10 @@ class LeadConversionWorkflow(WorkflowV2):
     ) -> None:
         computed_stage = self._determine_primary_stage(context)
 
+        logger.debug(f"Stage transition: {previous_stage.value} -> suggested: {suggested_stage} -> computed: {computed_stage.value}")
+
         if suggested_stage in {ConversationStage.PAUSADO, ConversationStage.ABANDONADO}:
+            logger.debug(f"Applying special stage transition to {suggested_stage}")
             context.stage = suggested_stage
             return
 
@@ -606,11 +693,15 @@ class LeadConversionWorkflow(WorkflowV2):
                 suggested_index = PRIMARY_STAGE_SEQUENCE.index(suggested_stage)
                 computed_index = PRIMARY_STAGE_SEQUENCE.index(computed_stage)
                 if suggested_index >= computed_index:
+                    logger.debug(f"Accepting suggested stage {suggested_stage.value} (index {suggested_index} >= {computed_index})")
                     context.stage = suggested_stage
                     return
+                else:
+                    logger.debug(f"Rejecting suggested stage {suggested_stage.value} (index {suggested_index} < {computed_index})")
             except ValueError:
                 logger.warning("Invalid stage suggestion: %s", suggested_stage)
 
+        logger.debug(f"Using computed stage: {computed_stage.value}")
         context.stage = computed_stage
 
     # ------------------------------------------------------------------
@@ -714,6 +805,9 @@ class LeadConversionWorkflow(WorkflowV2):
 
         # keep qualification flag updated
         context.check_qualification()
+
+        # Sync contract data between sections for consistency
+        self._sync_contract_data(context)
 
         # Infer missing structured choices from latest messages when LLM did not emit them
         self._apply_fallback_inferences(context)
@@ -860,6 +954,36 @@ class LeadConversionWorkflow(WorkflowV2):
         if field_name not in context.fields_collected:
             context.fields_collected.append(field_name)
 
+    @staticmethod
+    def _sync_contract_data(context: ConversationContext) -> None:
+        """Sync contract data between lead_data and contract_data sections for consistency."""
+        lead = context.lead_data
+        contract = context.contract_data
+
+        # If we have contract-specific data, ensure it's also in lead_data
+        if contract.get("nome_completo") and not lead.nome_completo:
+            lead.nome_completo = contract["nome_completo"]
+        if contract.get("cpf") and not lead.cpf:
+            lead.cpf = contract["cpf"]
+        if contract.get("email") and not lead.email:
+            lead.email = contract["email"]
+        if contract.get("telefone") and not lead.telefone:
+            lead.telefone = contract["telefone"]
+        if contract.get("data_nascimento") and not lead.data_nascimento:
+            lead.data_nascimento = contract["data_nascimento"]
+
+        # If we have lead data but missing contract data, sync it
+        if lead.nome_completo and not contract.get("nome_completo"):
+            contract["nome_completo"] = lead.nome_completo
+        if lead.cpf and not contract.get("cpf"):
+            contract["cpf"] = lead.cpf
+        if lead.email and not contract.get("email"):
+            contract["email"] = lead.email
+        if lead.telefone and not contract.get("telefone"):
+            contract["telefone"] = lead.telefone
+        if lead.data_nascimento and not contract.get("data_nascimento"):
+            contract["data_nascimento"] = lead.data_nascimento
+
     def _apply_fallback_inferences(self, context: ConversationContext) -> None:
         latest_user_message = next(
             (m["content"].lower() for m in reversed(context.messages_exchanged) if m.get("role") == "user"),
@@ -878,6 +1002,13 @@ class LeadConversionWorkflow(WorkflowV2):
             if inferred:
                 context.business_profile["estrutura_societaria"] = inferred
                 self._track_field_collection(context, "business_profile.estrutura_societaria")
+
+        # Infer tipo_negocio if not set yet
+        if not context.business_profile.get("tipo_negocio") and latest_user_message:
+            inferred = self._infer_tipo_negocio(latest_user_message)
+            if inferred:
+                context.business_profile["tipo_negocio"] = inferred
+                self._track_field_collection(context, "business_profile.tipo_negocio")
 
     @staticmethod
     def _infer_tipo_interesse(user_text: str) -> Optional[str]:
@@ -899,6 +1030,32 @@ class LeadConversionWorkflow(WorkflowV2):
             return "socios"
         if "nao sei" in cleaned or "não sei" in cleaned or "duvida" in cleaned:
             return "indefinido"
+        return None
+
+    @staticmethod
+    def _infer_tipo_negocio(user_text: str) -> Optional[str]:
+        """Infer business type from user message when they express general business intent."""
+        cleaned = re.sub(r"[^a-z ]", "", user_text.lower()).strip()
+
+        # If user expresses general business intent without specifying type,
+        # default to "servicos" as it's the most common for new entrepreneurs
+        business_intent_keywords = [
+            "abrir empresa", "primeira empresa", "nova empresa", "meu negocio",
+            "minha empresa", "empreender", "negocio proprio", "trabalhar por conta"
+        ]
+
+        if any(keyword in cleaned for keyword in business_intent_keywords):
+            # Check for specific business type indicators first
+            if any(word in cleaned for word in ["vender", "produto", "loja", "comercio"]):
+                return "comercio"
+            elif any(word in cleaned for word in ["fabrica", "producao", "industria", "manufatura"]):
+                return "industria"
+            elif any(word in cleaned for word in ["servico", "consultoria", "atendimento", "prestacao"]):
+                return "servicos"
+            else:
+                # Default to services for general business intent
+                return "servicos"
+
         return None
 
     # ------------------------------------------------------------------
@@ -944,17 +1101,17 @@ class LeadConversionWorkflow(WorkflowV2):
         return self._context
 
     def _hydrate_context_from_storage(self) -> None:
-        self._ensure_session_loaded()
+        """Load context from database storage or create new one."""
         context_data = None
 
+        # Try to load from current session state first
         if self.workflow_session_state and "context" in self.workflow_session_state:
             context_data = self.workflow_session_state.get("context")
-        elif self.workflow_session and self.workflow_session.session_data:
-            session_data = self.workflow_session.session_data
-            context_data = session_data.get("context")
-            stored_state = session_data.get("session_state")
-            if stored_state:
-                self.workflow_session_state = stored_state
+        else:
+            # Load session state from database
+            self._load_session_state_from_db()
+            if self.workflow_session_state and "context" in self.workflow_session_state:
+                context_data = self.workflow_session_state.get("context")
 
         if context_data:
             try:
@@ -975,19 +1132,63 @@ class LeadConversionWorkflow(WorkflowV2):
         self.workflow_session_state["context"] = self._serialize_context(self._context)
 
     def _persist_context(self, context: ConversationContext) -> None:
+        """Persist context to database storage."""
         self._context = context
+
+        # Store in Agno's session state for current execution
+        self.session_state["context"] = self._serialize_context(context)
         self._store_context_in_state()
-        self._ensure_session_loaded()
-        if self.workflow_session is not None:
-            if self.workflow_session.session_data is None:
-                self.workflow_session.session_data = {}
-            self.workflow_session.session_data["context"] = self._serialize_context(context)
-            self.workflow_session.session_data["session_state"] = dict(self.session_state)
-        self.write_to_storage()
+
+        # Manually persist session state to database since Agno doesn't do this automatically
+        self._save_session_state_to_db()
 
     def _ensure_session_loaded(self) -> None:
         if self.workflow_session is None:
             self.load_session()
+
+    def _save_session_state_to_db(self) -> None:
+        """Manually save session state to database using workflow session."""
+        try:
+            if not self.session_state:
+                return
+
+            # Ensure we have a workflow session
+            self._ensure_session_loaded()
+
+            if self.workflow_session and self.storage:
+                # Set the session data
+                session_data_to_save = dict(self.session_state)
+                self.workflow_session.session_data = session_data_to_save
+
+                # Use the storage's upsert method with the workflow session
+                # This bypasses the broken write_to_storage() method
+                self.storage.upsert(self.workflow_session)
+
+        except Exception as exc:
+            logger.warning("Failed to save session state to database: %s", exc)
+
+    def _load_session_state_from_db(self) -> None:
+        """Manually load session state from database using workflow session."""
+        try:
+            if not self.storage or not self.session_id:
+                if self.workflow_session_state is None:
+                    self.workflow_session_state = {}
+                return
+
+            # Use storage to load the session
+            session_record = self.storage.read(self.session_id)
+
+            if session_record and hasattr(session_record, 'session_data') and session_record.session_data:
+                # Restore session state from database
+                self.workflow_session_state = dict(session_record.session_data)
+            else:
+                if self.workflow_session_state is None:
+                    self.workflow_session_state = {}
+
+        except Exception as exc:
+            logger.warning("Failed to load session state from database: %s", exc)
+            if self.workflow_session_state is None:
+                self.workflow_session_state = {}
 
     def _serialize_context(self, context: ConversationContext) -> Dict[str, Any]:
         def convert(value: Any) -> Any:
@@ -1004,17 +1205,9 @@ class LeadConversionWorkflow(WorkflowV2):
         return convert(context.model_dump())
 
     def _save_session_state(self) -> None:
-        context_data = self.session_state.get("context") if self.session_state else None
-        if context_data:
-            try:
-                context = ConversationContext(**context_data)
-            except Exception:
-                context = ConversationContext()
-        else:
-            context = ConversationContext()
-
-        self._context = context
-        self._persist_context(context)
+        """Save the current context state to storage."""
+        if self._context is not None:
+            self._persist_context(self._context)
 
     def _get_context(self) -> ConversationContext:
         return self._ensure_context()
@@ -1071,7 +1264,7 @@ class LeadConversionWorkflow(WorkflowV2):
             )
             context.last_interaction_at = datetime.now()
             self._trim_history(context)
-            self._store_context_in_state()
+            self._persist_context(context)  # Changed from _store_context_in_state() to _persist_context()
 
     @staticmethod
     def _safe_extract_content(workflow_response: WorkflowRunResponse) -> str:
