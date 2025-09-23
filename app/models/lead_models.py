@@ -8,19 +8,27 @@ for Brazilian accounting services lead conversion.
 import re
 from datetime import datetime, timedelta
 from enum import Enum
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
 from pydantic import BaseModel, Field, validator
 
 
 class ConversationStage(str, Enum):
-    """Conversation stages in the lead conversion state machine."""
-    GREETING = "greeting"
-    QUALIFICATION = "qualification"
-    DATA_COLLECTION = "data_collection"
-    OBJECTION_HANDLING = "objection_handling"
-    CONVERSION = "conversion"
-    NURTURING = "nurturing"
-    COMPLETED = "completed"
+    """Conversation stages aligned with the Agilize onboarding journey."""
+
+    INICIAL = "inicial"
+    QUALIFICACAO = "qualificacao"
+    PROPOSTA = "proposta"
+    CONTRATACAO = "contratacao"
+    COLETA_DOCUMENTOS_PESSOAIS = "coleta_documentos_pessoais"
+    DEFINICAO_EMPRESA = "definicao_empresa"
+    ESCOLHA_CNAE = "escolha_cnae"
+    ENDERECO_COMERCIAL = "endereco_comercial"
+    REVISAO_FINAL = "revisao_final"
+    PROCESSAMENTO = "processamento"
+    CONCLUIDO = "concluido"
+    PAUSADO = "pausado"
+    ABANDONADO = "abandonado"
 
 
 class LeadData(BaseModel):
@@ -35,6 +43,9 @@ class LeadData(BaseModel):
     renda_mensal: Optional[float] = Field(None, ge=0, description="Renda mensal em R$")
     tem_empresa: Optional[bool] = None
     precisa_contabilidade: Optional[bool] = None
+    tipo_interesse: Optional[str] = None
+    cpf: Optional[str] = None
+    data_nascimento: Optional[str] = None
 
     @validator('telefone')
     def validate_telefone_brasileiro(cls, v):
@@ -55,8 +66,17 @@ class LeadData(BaseModel):
 
 class ConversationContext(BaseModel):
     """Complete conversation state management."""
-    stage: ConversationStage = ConversationStage.GREETING
+    stage: ConversationStage = ConversationStage.INICIAL
     lead_data: LeadData = Field(default_factory=LeadData)
+
+    # Journey specific blocks
+    business_profile: Dict[str, Any] = Field(default_factory=dict)
+    proposal_status: Dict[str, Any] = Field(default_factory=dict)
+    contract_data: Dict[str, Any] = Field(default_factory=dict)
+    document_status: Dict[str, Any] = Field(default_factory=dict)
+    company_profile: Dict[str, Any] = Field(default_factory=dict)
+    review_status: Dict[str, Any] = Field(default_factory=dict)
+    process_status: Dict[str, Any] = Field(default_factory=dict)
 
     # Conversation tracking
     conversation_turns: int = 0
@@ -81,17 +101,22 @@ class ConversationContext(BaseModel):
 
     def check_qualification(self) -> bool:
         """Check if lead is qualified (renda >= R$5,000)."""
-        if self.lead_data.renda_mensal is None:
+        renda = self.lead_data.renda_mensal
+        if renda is None:
             return False
 
-        if self.lead_data.renda_mensal >= 5000:
+        if renda >= 5000:
             self.is_qualified = True
-            self.qualification_reason = f"Qualificado: renda mensal de R${self.lead_data.renda_mensal:,.2f}"
+            self.qualification_reason = (
+                f"Qualificado: renda mensal de R${renda:,.2f}"
+            )
             return True
-        else:
-            self.is_qualified = False
-            self.qualification_reason = f"Não qualificado: renda mensal de R${self.lead_data.renda_mensal:,.2f} (mínimo R$5.000)"
-            return False
+
+        self.is_qualified = False
+        self.qualification_reason = (
+            f"Não qualificado: renda mensal de R${renda:,.2f} (mínimo R$5.000)"
+        )
+        return False
 
 
 class AgentResponse(BaseModel):

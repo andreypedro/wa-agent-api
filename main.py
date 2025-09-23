@@ -40,7 +40,21 @@ def read_root():
         'framework': 'Agno',
         'model': 'google/gemini-2.5-flash via OpenRouter',
         'features': ['Lead Conversion State Machine', 'Brazilian Accounting Services', 'Multi-channel Support'],
-        'workflow_stages': ['greeting', 'qualification', 'data_collection', 'objection_handling', 'conversion', 'nurturing', 'completed'],
+        'workflow_stages': [
+            'inicial',
+            'qualificacao',
+            'proposta',
+            'contratacao',
+            'coleta_documentos_pessoais',
+            'definicao_empresa',
+            'escolha_cnae',
+            'endereco_comercial',
+            'revisao_final',
+            'processamento',
+            'concluido',
+            'pausado',
+            'abandonado'
+        ],
         'qualification_threshold': 'R$ 5.000/mês',
         'channels': {
             'telegram': ENABLE_TELEGRAM,
