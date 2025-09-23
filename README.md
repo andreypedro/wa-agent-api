@@ -37,11 +37,14 @@ This project is an API for WhatsApp and Telegram agents, integrating AI models v
 
 ## Project structure
 
-- `main.py`: API entry point.
-- `app/agents/nfse_agent.py`: NFSe functions.
-- `app/core/openrouter_client.py`: OpenRouter integration client.
-- `app/telegram/bot.py`: Telegram bot.
-- `app/whatsapp/`: (structure for WhatsApp integration)
+- `main.py`: API entry point with FastAPI
+- `app/workflows/lead_workflow.py`: Lead conversion state machine
+- `app/services/audio_transcription.py`: Speech recognition service
+- `app/telegram/agno_bot.py`: Telegram bot with voice support
+- `app/whatsapp/agno_bot.py`: WhatsApp bot integration
+- `app/models/lead_models.py`: Data models and conversation context
+- `app/core/database.py`: Database configuration and storage
+- `monitor_conversations.py`: Real-time conversation data monitoring
 
 ## 🐳 Docker Setup (Recommended)
 
