@@ -1,1 +1,5 @@
 .env
+
+# Database files
+chat_history.db
+*.db
