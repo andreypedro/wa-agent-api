@@ -15,13 +15,9 @@ import re
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional, Tuple
 
-from agno.agent import Agent, RunResponse
+from agno.agent import Agent, RunOutput
 from agno.models.openrouter import OpenRouter
-from agno.workflow.v2.router import Router
-from agno.workflow.v2.step import Step
-from agno.workflow.v2.steps import Steps
-from agno.workflow.v2.types import StepInput, StepOutput
-from agno.workflow.v2.workflow import Workflow as WorkflowV2, WorkflowRunResponse
+from agno.workflow import Router, Step, Steps, StepInput, StepOutput, Workflow
 
 from app.core.database import get_agent_storage, get_workflow_storage
 from app.models.lead_models import ConversationContext, ConversationStage
@@ -149,7 +145,7 @@ LIST_KEYS = {
 }
 
 
-class LeadConversionWorkflow(WorkflowV2):
+class LeadConversionWorkflow(Workflow):
     """Router-driven workflow coordinating specialised stage agents."""
 
     def __init__(self, session_id: Optional[str] = None, user_id: Optional[str] = None, **kwargs):
@@ -172,7 +168,7 @@ class LeadConversionWorkflow(WorkflowV2):
             steps=[router],
             session_id=session_id,
             user_id=user_id,
-            storage=get_workflow_storage(),
+            db=get_workflow_storage(),
             **kwargs,
         )
 
@@ -187,9 +183,9 @@ class LeadConversionWorkflow(WorkflowV2):
 
         base_kwargs = {
             "model": model,
-            "storage": self._agent_storage,
+            "db": self._agent_storage,
             "session_id": session_id,
-            "add_history_to_messages": True,
+            "add_history_to_context": True,
             "markdown": True,
             "debug_mode": False,
         }
@@ -388,7 +384,7 @@ class LeadConversionWorkflow(WorkflowV2):
     def _make_stage_executor(self, stage: ConversationStage, agent: Agent):
         def _executor(step_input: StepInput) -> StepOutput:
             context = self._ensure_context()
-            user_input = self._latest_user_input or (step_input.message or "")
+            user_input = self._latest_user_input or (step_input.input or "")
             prompt = self._build_stage_prompt(stage, context, str(user_input))
             try:
                 response = agent.run(prompt, session_id=self.session_id, stream=False)
@@ -398,14 +394,13 @@ class LeadConversionWorkflow(WorkflowV2):
                 content = (
                     "Desculpe, enfrentei uma instabilidade. Pode repetir ou tentar novamente em instantes?"
                 )
-                response = RunResponse(content=content)
+                response = RunOutput(content=content)
 
             return StepOutput(
                 step_name=f"{stage.value}_agent",
                 executor_type="agent",
                 executor_name=agent.name,
                 content=content,
-                response=response,
             )
 
         return _executor
@@ -647,7 +642,7 @@ class LeadConversionWorkflow(WorkflowV2):
     # ------------------------------------------------------------------
     def _route_conversation_state(self, step_input: StepInput) -> List[Steps]:
         context = self._ensure_context()
-        user_input = step_input.message or self._latest_user_input
+        user_input = step_input.input or self._latest_user_input
         text = str(user_input).lower()
 
         if self._detect_completion_request(text) and context.stage not in {
@@ -1284,7 +1279,7 @@ class LeadConversionWorkflow(WorkflowV2):
     # ------------------------------------------------------------------
     # Run loop
     # ------------------------------------------------------------------
-    def run(self, user_input: str = "", **kwargs) -> Iterator[RunResponse]:
+    def run(self, user_input: str = "", **kwargs) -> Iterator[RunOutput]:
         message = user_input or ""
         self._latest_user_input = message
         context = self._ensure_context()
@@ -1296,7 +1291,7 @@ class LeadConversionWorkflow(WorkflowV2):
 
         try:
             workflow_response = super().run(
-                message=message,
+                input=message,
                 session_id=self.session_id,
                 user_id=self.user_id,
                 stream=False,
@@ -1304,13 +1299,13 @@ class LeadConversionWorkflow(WorkflowV2):
             )
             final_message = self._safe_extract_content(workflow_response)
             if final_message:
-                yield RunResponse(content=final_message)
+                yield RunOutput(content=final_message)
         except Exception as exc:  # pragma: no cover - runtime guard
             logger.exception("State machine execution failed: %s", exc)
             fallback = (
                 "Desculpe, tivemos um imprevisto técnico. Nossa equipe já está cuidando disso. Pode tentar novamente em instantes?"
             )
-            yield RunResponse(content=fallback)
+            yield RunOutput(content=fallback)
         finally:
             if self._context is not None:
                 self._save_session_state()
@@ -1331,7 +1326,7 @@ class LeadConversionWorkflow(WorkflowV2):
             self._persist_context(context)  # Changed from _store_context_in_state() to _persist_context()
 
     @staticmethod
-    def _safe_extract_content(workflow_response: WorkflowRunResponse) -> str:
+    def _safe_extract_content(workflow_response) -> str:
         if workflow_response is None:
             return ""
         content = workflow_response.content

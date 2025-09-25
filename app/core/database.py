@@ -5,9 +5,9 @@ from typing import Dict, Optional, Literal
 
 from dotenv import load_dotenv
 
-from agno.storage.base import Storage
-from agno.storage.sqlite import SqliteStorage
-from agno.storage.postgres import PostgresStorage
+from agno.db.base import BaseDb
+from agno.db.sqlite import SqliteDb
+from agno.db.postgres import PostgresDb
 
 load_dotenv()
 
@@ -20,10 +20,10 @@ _TABLE_NAMES: Dict[StorageMode, str] = {
     "workflow_v2": "workflow_sessions_v2",
 }
 
-_STORAGE_CACHE: Dict[str, Storage] = {}
+_STORAGE_CACHE: Dict[str, BaseDb] = {}
 
 
-def get_database_storage(mode: StorageMode = "workflow_v2") -> Optional[Storage]:
+def get_database_storage(mode: StorageMode = "workflow_v2") -> Optional[BaseDb]:
     """Return a cached storage instance configured for the requested mode."""
 
     database_url = os.getenv("DATABASE_URL")
@@ -40,22 +40,17 @@ def get_database_storage(mode: StorageMode = "workflow_v2") -> Optional[Storage]
         if database_url.startswith("sqlite"):
             db_path = database_url.replace("sqlite:///", "")
             print(f"[DATABASE] Using SQLite database: {db_path} ({table_name})")
-            storage = SqliteStorage(
+            storage = SqliteDb(
                 table_name=table_name,
                 db_file=db_path,
-                mode=mode,
-                auto_upgrade_schema=True,
             )
-            storage.mode = mode
+
         elif database_url.startswith("postgresql"):
             print(f"[DATABASE] Using PostgreSQL database ({table_name})")
-            storage = PostgresStorage(
+            storage = PostgresDb(
                 table_name=table_name,
                 db_url=database_url,
-                mode=mode,
-                auto_upgrade_schema=True,
             )
-            storage.mode = mode
         else:
             print(f"[DATABASE] Unsupported database URL format: {database_url}")
             print("[DATABASE] Supported formats: sqlite:///path/to/db.db or postgresql://user:pass@host:port/db")
@@ -69,19 +64,19 @@ def get_database_storage(mode: StorageMode = "workflow_v2") -> Optional[Storage]
     return storage
 
 
-def get_workflow_storage() -> Optional[Storage]:
+def get_workflow_storage() -> Optional[BaseDb]:
     """Shortcut for workflow_v2 storage configuration."""
 
     return get_database_storage(mode="workflow_v2")
 
 
-def get_agent_storage() -> Optional[Storage]:
+def get_agent_storage() -> Optional[BaseDb]:
     """Shortcut for agent storage configuration."""
 
     return get_database_storage(mode="agent")
 
 
-def get_session_storage() -> Optional[Storage]:
+def get_session_storage() -> Optional[BaseDb]:
     """Alias kept for backwards compatibility with existing imports."""
 
     return get_workflow_storage()
