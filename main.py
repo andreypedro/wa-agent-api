@@ -6,10 +6,10 @@ import json
 from datetime import datetime
 from typing import Dict, Any
 
-from app.workflows.lead_workflow import get_lead_conversion_workflow
-from app.models.lead_models import ChatRequest, ChatResponse, ConversationContext
+from app.workflows.prd_workflow import get_prd_generation_workflow
+from app.models.prd_models import ChatRequest, ChatResponse
 
-app = FastAPI(title="Lead Conversion API with Agno", version="2.0.0")
+app = FastAPI(title="PRD Generator API", version="2.0.0")
 
 # Initialize bots based on environment variables
 ENABLE_TELEGRAM = os.getenv('ENABLE_TELEGRAM', 'false').lower() == 'true'
@@ -17,45 +17,55 @@ ENABLE_WHATSAPP = os.getenv('ENABLE_WHATSAPP', 'false').lower() == 'true'
 
 # Initialize Telegram bot
 if ENABLE_TELEGRAM:
-    from app.telegram.agno_bot import AgnoTelegramBot as TelegramBot
-    from app.telegram.config import TELEGRAM_BOT_TOKEN
-    telegram_bot = TelegramBot(token=TELEGRAM_BOT_TOKEN)
+    from app.telegram.prd_bot import PRDTelegramBot as TelegramBot
+    telegram_bot_token = os.getenv('TELEGRAM_BOT_TOKEN')
+    if telegram_bot_token:
+        telegram_bot = TelegramBot(token=telegram_bot_token)
+    else:
+        print("Warning: TELEGRAM_BOT_TOKEN not configured")
+        telegram_bot = None
 
 # Initialize WhatsApp bot
 if ENABLE_WHATSAPP:
-    from app.whatsapp.agno_bot import AgnoWhatsAppBot
-    whatsapp_bot = AgnoWhatsAppBot()
+    from app.whatsapp.prd_bot import get_whatsapp_bot
+    try:
+        whatsapp_bot = get_whatsapp_bot()
+    except ValueError as e:
+        print(f"Warning: WhatsApp bot configuration error: {e}")
+        whatsapp_bot = None
 
 @app.on_event('startup')
 async def startup_event():
-    if ENABLE_TELEGRAM:
+    if ENABLE_TELEGRAM and telegram_bot:
+        print("Starting PRD Telegram Bot...")
         loop = asyncio.get_event_loop()
-        loop.create_task(telegram_bot.run_async())
+        loop.create_task(asyncio.to_thread(telegram_bot.run))
     # WhatsApp bot runs via webhooks, no startup task needed
 
 @app.get('/')
 def read_root():
     return {
-        'message': 'Lead Conversion API com Agno está rodando!',
+        'message': 'PRD Generator API is running!',
         'framework': 'Agno',
         'model': 'google/gemini-2.5-flash via OpenRouter',
-        'features': ['Lead Conversion State Machine', 'Brazilian Accounting Services', 'Multi-channel Support'],
-        'workflow_stages': [
-            'inicial',
-            'qualificacao',
-            'proposta',
-            'contratacao',
-            'coleta_documentos_pessoais',
-            'definicao_empresa',
-            'escolha_cnae',
-            'endereco_comercial',
-            'revisao_final',
-            'processamento',
-            'concluido',
-            'pausado',
-            'abandonado'
+        'features': ['PRD Generation Workflow', 'AI Product Manager', 'Multi-channel Support'],
+        'workflow_phases': [
+            'initial_discovery',
+            'product_vision',
+            'target_audience',
+            'core_features',
+            'user_stories',
+            'technical_requirements',
+            'success_metrics',
+            'constraints_assumptions',
+            'prd_review',
+            'prd_refinement',
+            'prd_finalization',
+            'completed',
+            'paused',
+            'abandoned'
         ],
-        'qualification_threshold': 'R$ 5.000/mês',
+        'purpose': 'Generate comprehensive Product Requirements Documents for software products',
         'channels': {
             'telegram': ENABLE_TELEGRAM,
             'whatsapp': ENABLE_WHATSAPP
@@ -72,7 +82,7 @@ def health_check():
     return {
         'status': 'healthy',
         'framework': 'agno',
-        'workflow': 'lead_conversion',
+        'workflow': 'prd_generation',
         'channels': {
             'telegram_enabled': ENABLE_TELEGRAM,
             'whatsapp_enabled': ENABLE_WHATSAPP
@@ -82,44 +92,59 @@ def health_check():
 @app.post('/chat', response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     """
-    Main chat endpoint for testing the lead conversion workflow.
+    Main chat endpoint for PRD generation workflow.
     """
     try:
         print(f"[API] Received request: message='{request.message}', session_id='{request.session_id}'")
 
         # Generate session ID if not provided
-        session_id = request.session_id or f"api_{datetime.now().timestamp()}"
+        session_id = request.session_id or f"prd_{datetime.now().timestamp()}"
 
         # Create workflow instance
-        print(f"[API] Creating workflow with session_id: {session_id}")
-        workflow = get_lead_conversion_workflow(session_id=session_id)
+        print(f"[API] Creating PRD workflow with session_id: {session_id}")
+        workflow = get_prd_generation_workflow(session_id=session_id)
 
         # Process message
+        workflow_output = workflow.run(request.message)
         responses = []
-        for workflow_response in workflow.run(request.message):
-            if workflow_response.content:
-                responses.append(workflow_response.content)
+        if workflow_output and hasattr(workflow_output, 'content'):
+            responses.append(workflow_output.content)
+        elif workflow_output and hasattr(workflow_output, 'output'):
+            responses.append(str(workflow_output.output))
 
-        # Get context for response metadata
-        context = workflow._get_context()
+        # Get current context for response metadata
+        context = workflow.get_context()
+        current_phase = context.phase.value if context else "unknown"
+        completion_percentage = workflow.get_completion_percentage() if hasattr(workflow, 'get_completion_percentage') else 0
+
+        print(f"[API] Generated {len(responses)} responses for phase: {current_phase}")
 
         return ChatResponse(
             session_id=session_id,
             responses=responses,
-            stage=context.stage.value,
-            qualified=context.is_qualified if context.lead_data.renda_mensal else None,
-            qualification_reason=context.qualification_reason,
+            phase=current_phase,
+            completion_percentage=completion_percentage,
+            generated_prd=context.generated_prd if context else None,
             context={
-                'turns': context.conversation_turns,
-                'fields_collected': context.fields_collected,
-                'income': context.lead_data.renda_mensal,
-                'name': context.lead_data.nome_completo,
-                'email': context.lead_data.email
+                'phase': current_phase,
+                'completion_percentage': completion_percentage,
+                'total_interactions': getattr(context, 'total_interactions', 0) if context else 0,
+                'created_at': getattr(context, 'created_at', None) if context else None,
             }
         )
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro no processamento: {str(e)}")
+        print(f"[API] Error processing request: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+        # Return error response
+        return ChatResponse(
+            session_id=request.session_id or "error",
+            responses=[f"Sorry, an error occurred while processing your message: {str(e)}"],
+            phase="error",
+            context={'error': str(e)}
+        )
 
 @app.get('/session/{session_id}')
 async def get_session_info(session_id: str):
