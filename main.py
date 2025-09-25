@@ -36,10 +36,8 @@ if ENABLE_WHATSAPP:
 
 @app.on_event('startup')
 async def startup_event():
-    if ENABLE_TELEGRAM and telegram_bot:
-        print("Starting PRD Telegram Bot...")
-        loop = asyncio.get_event_loop()
-        loop.create_task(asyncio.to_thread(telegram_bot.run))
+    print("PRD Generator API started successfully!")
+    print("Telegram bot should be started separately using: python3 -m app.telegram.prd_bot")
     # WhatsApp bot runs via webhooks, no startup task needed
 
 @app.get('/')

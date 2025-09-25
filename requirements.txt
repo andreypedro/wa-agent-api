@@ -6,3 +6,4 @@ openai
 python-telegram-bot
 requests
 sqlalchemy
+groq

@@ -11,10 +11,12 @@ from app.core.database import get_workflow_storage
 try:
     from app.services.audio_transcription import get_transcription_service, AudioTranscriptionError
     AUDIO_TRANSCRIPTION_AVAILABLE = True
-except ImportError:
-    print("[TELEGRAM] Audio transcription not available - voice messages will be disabled")
+    print("[TELEGRAM] Audio transcription available with Groq API")
+except ImportError as e:
+    print(f"[TELEGRAM] Audio transcription not available - voice messages will be disabled: {e}")
     AUDIO_TRANSCRIPTION_AVAILABLE = False
     AudioTranscriptionError = Exception
+    get_transcription_service = None
 
 load_dotenv()
 
@@ -213,7 +215,11 @@ class PRDTelegramBot:
             try:
                 # Transcribe the audio
                 transcription_service = get_transcription_service()
-                transcribed_text = transcription_service.transcribe_audio(temp_path)
+                transcribed_text = transcription_service.transcribe_audio(
+                    temp_path,
+                    language="en",  # Changed to English for PRD generation
+                    prompt="Product requirements and software development discussion"
+                )
                 
                 if transcribed_text:
                     logging.info(f"[TELEGRAM] Transcribed voice from {user_id}: {transcribed_text}")
