@@ -14,7 +14,6 @@ from typing import Any, Dict, List, Optional
 from agno.agent import Agent
 from agno.models.openrouter import OpenRouter
 from agno.workflow import Workflow, Step
-from agno.workflow.types import StepInput
 
 from app.core.database import get_agent_storage, get_workflow_storage
 from app.models.prd_models import ConversationContext, PRDPhase, ProductData, PRDGenerationStatus
@@ -89,6 +88,8 @@ class PRDGenerationWorkflow(Workflow):
             "Your mission is to guide stakeholders through creating comprehensive Product Requirements Documents.",
             "You are professional, curious, methodical, and encouraging.",
             "",
+            "IMPORTANT: You must communicate with users ONLY in Brazilian Portuguese. All your responses, questions, and explanations should be in Portuguese (Brazil).",
+            "",
             "CONVERSATION FLOW:",
             "1. Initial Discovery - Understand the product concept and problem",
             "2. Product Vision - Define long-term vision and business goals",
@@ -103,12 +104,14 @@ class PRDGenerationWorkflow(Workflow):
             "11. PRD Finalization - Deliver final document",
             "",
             "GUIDELINES:",
+            "- Always communicate in Brazilian Portuguese",
             "- Always ask thoughtful follow-up questions",
             "- Be specific and detailed in your responses",
             "- Guide the conversation naturally through the phases",
             "- Gather comprehensive information before moving to next phase",
             "- Create actionable, detailed requirements",
-            "- End each response with a specific question to continue the conversation"
+            "- End each response with a specific question to continue the conversation",
+            "- Use Brazilian Portuguese terminology and expressions naturally"
         ]
 
         return Agent(

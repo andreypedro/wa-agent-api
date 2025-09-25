@@ -53,31 +53,31 @@ class PRDTelegramBot:
     async def start(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         welcome_msg = (
             f"🤖 {TELEGRAM_WELCOME}\n\n"
-            "I'm here to guide you through creating a Product Requirements Document (PRD) for your software product!\n\n"
-            "Here's how I can help:\n"
-            "📋 Gather your product requirements\n"
-            "👥 Define your target audience\n"
-            "⚙️ Identify technical specifications\n"
-            "📊 Set success metrics\n"
-            "📄 Generate a comprehensive PRD\n\n"
-            "Just tell me about your software product idea and we'll get started!\n\n"
-            "Type /help to see available commands."
+            "Olá! Sou seu assistente especializado em criar Documentos de Requisitos de Produto (PRD) para produtos de software!\n\n"
+            "Como posso te ajudar:\n"
+            "📋 Coletar os requisitos do seu produto\n"
+            "👥 Definir seu público-alvo\n"
+            "⚙️ Identificar especificações técnicas\n"
+            "📊 Estabelecer métricas de sucesso\n"
+            "📄 Gerar um PRD abrangente\n\n"
+            "Apenas me conte sobre sua ideia de produto de software e vamos começar!\n\n"
+            "Digite /help para ver os comandos disponíveis."
         )
         await update.message.reply_text(welcome_msg)
 
     async def help(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         help_msg = (
-            "🤖 PRD Generator Bot Commands:\n\n"
-            "/start - Start a new PRD generation session\n"
-            "/help - Show this help message\n"
-            "/reset - Clear conversation history and start over\n"
-            "/status - Check current progress and phase\n\n"
-            "💡 Tips:\n"
-            f"{'• You can send voice messages - I will transcribe them!' if AUDIO_TRANSCRIPTION_AVAILABLE else '• Send text messages with your product ideas'}\n"
-            "• Be as detailed as possible about your product idea\n"
-            "• I'll guide you through each phase of requirement gathering\n"
-            "• The process typically takes 15-30 minutes depending on complexity\n\n"
-            "Just start by telling me about your software product idea!"
+            "🤖 Comandos do Bot Gerador de PRD:\n\n"
+            "/start - Iniciar uma nova sessão de geração de PRD\n"
+            "/help - Mostrar esta mensagem de ajuda\n"
+            "/reset - Limpar histórico da conversa e recomeçar\n"
+            "/status - Verificar progresso atual e fase\n\n"
+            "💡 Dicas:\n"
+            f"{'• Você pode enviar mensagens de voz - eu vou transcrevê-las!' if AUDIO_TRANSCRIPTION_AVAILABLE else '• Envie mensagens de texto com suas ideias de produto'}\n"
+            "• Seja o mais detalhado possível sobre sua ideia de produto\n"
+            "• Vou te guiar através de cada fase da coleta de requisitos\n"
+            "• O processo normalmente leva 15-30 minutos dependendo da complexidade\n\n"
+            "Apenas comece me contando sobre sua ideia de produto de software!"
         )
         await update.message.reply_text(help_msg)
 
@@ -94,16 +94,16 @@ class PRDTelegramBot:
                 storage.delete_session(session_id)
             
             reset_msg = (
-                "🔄 Your PRD generation session has been reset!\n\n"
-                "You can now start fresh with a new product idea.\n"
-                "Tell me about your software product and we'll begin creating your PRD!"
+                "🔄 Sua sessão de geração de PRD foi reiniciada!\n\n"
+                "Agora você pode começar do zero com uma nova ideia de produto.\n"
+                "Me conte sobre seu produto de software e vamos começar a criar seu PRD!"
             )
             await update.message.reply_text(reset_msg)
             
         except Exception as e:
             logging.error(f"Error resetting memory: {e}")
             await update.message.reply_text(
-                "Sorry, there was an error resetting your session. Please try again or contact support."
+                "Desculpe, houve um erro ao reiniciar sua sessão. Tente novamente ou entre em contato com o suporte."
             )
 
     async def status(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -121,25 +121,25 @@ class PRDTelegramBot:
                 phase = context_data.phase.value.replace('_', ' ').title()
                 
                 status_msg = (
-                    f"📊 PRD Generation Status\n\n"
-                    f"Current Phase: {phase}\n"
-                    f"Progress: {completion}%\n"
-                    f"Total Interactions: {context_data.total_interactions}\n"
-                    f"Started: {context_data.created_at.strftime('%Y-%m-%d %H:%M') if context_data.created_at else 'Unknown'}\n\n"
+                    f"📊 Status da Geração de PRD\n\n"
+                    f"Fase Atual: {phase}\n"
+                    f"Progresso: {completion}%\n"
+                    f"Total de Interações: {context_data.total_interactions}\n"
+                    f"Iniciado: {context_data.created_at.strftime('%d/%m/%Y %H:%M') if context_data.created_at else 'Desconhecido'}\n\n"
                 )
                 
                 if context_data.product_data.product_name:
-                    status_msg += f"Product: {context_data.product_data.product_name}\n"
-                
+                    status_msg += f"Produto: {context_data.product_data.product_name}\n"
+
                 if completion == 100:
-                    status_msg += "🎉 Your PRD is complete!"
+                    status_msg += "🎉 Seu PRD está completo!"
                 else:
-                    status_msg += "Continue our conversation to progress through the next phases."
-                    
+                    status_msg += "Continue nossa conversa para progredir através das próximas fases."
+
             else:
                 status_msg = (
-                    "📋 No active PRD generation session found.\n\n"
-                    "Start by telling me about your software product idea!"
+                    "📋 Nenhuma sessão ativa de geração de PRD encontrada.\n\n"
+                    "Comece me contando sobre sua ideia de produto de software!"
                 )
             
             await update.message.reply_text(status_msg)
@@ -147,7 +147,7 @@ class PRDTelegramBot:
         except Exception as e:
             logging.error(f"Error getting status: {e}")
             await update.message.reply_text(
-                "Sorry, there was an error getting your status. Please try again."
+                "Desculpe, houve um erro ao obter seu status. Tente novamente."
             )
 
     async def handle_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -178,25 +178,25 @@ class PRDTelegramBot:
                 # Add progress indicator
                 completion = workflow.get_completion_percentage()
                 if completion > 0 and completion < 100:
-                    final_response += f"\n\n📊 Progress: {completion}%"
+                    final_response += f"\n\n📊 Progresso: {completion}%"
                 
                 await update.message.reply_text(final_response)
                 logging.info(f"[TELEGRAM] Response sent to {user_id}")
             else:
                 # Fallback if no response generated
-                fallback_msg = "I'm sorry, I didn't understand that. Could you please rephrase or provide more details about your software product?"
+                fallback_msg = "Desculpe, não entendi. Você poderia reformular ou fornecer mais detalhes sobre seu produto de software?"
                 await update.message.reply_text(fallback_msg)
 
         except Exception as e:
             logging.error(f"Error handling message: {str(e)}")
-            error_msg = "Sorry, I encountered an error processing your message. Please try again or type /reset to start over."
+            error_msg = "Desculpe, encontrei um erro ao processar sua mensagem. Tente novamente ou digite /reset para recomeçar."
             await update.message.reply_text(error_msg)
 
     async def handle_voice_message(self, update: Update, context: ContextTypes.DEFAULT_TYPE):
         """Handle voice messages by transcribing them first."""
         if not AUDIO_TRANSCRIPTION_AVAILABLE:
             await update.message.reply_text(
-                "🎤 Voice messages are not supported in this configuration. Please send a text message instead."
+                "🎤 Mensagens de voz não são suportadas nesta configuração. Por favor, envie uma mensagem de texto."
             )
             return
 
@@ -217,7 +217,7 @@ class PRDTelegramBot:
                 transcription_service = get_transcription_service()
                 transcribed_text = transcription_service.transcribe_audio(
                     temp_path,
-                    language="en",  # Changed to English for PRD generation
+                    language="pt",  # Portuguese for Brazilian users
                     prompt="Product requirements and software development discussion"
                 )
                 
@@ -225,7 +225,7 @@ class PRDTelegramBot:
                     logging.info(f"[TELEGRAM] Transcribed voice from {user_id}: {transcribed_text}")
                     
                     # Send transcription confirmation
-                    await update.message.reply_text(f"🎤 I heard: \"{transcribed_text}\"\n\nProcessing your message...")
+                    await update.message.reply_text(f"🎤 Ouvi: \"{transcribed_text}\"\n\nProcessando sua mensagem...")
                     
                     # Process the transcribed text as a regular message
                     session_id = f"telegram_{user_id}"
@@ -244,22 +244,22 @@ class PRDTelegramBot:
                         # Add progress indicator
                         completion = workflow.get_completion_percentage()
                         if completion > 0 and completion < 100:
-                            final_response += f"\n\n📊 Progress: {completion}%"
+                            final_response += f"\n\n📊 Progresso: {completion}%"
                         
                         await update.message.reply_text(final_response)
                     else:
                         await update.message.reply_text(
-                            "I transcribed your voice message but couldn't process it. Could you please try again?"
+                            "Transcrevi sua mensagem de voz mas não consegui processá-la. Você poderia tentar novamente?"
                         )
                 else:
                     await update.message.reply_text(
-                        "🎤 I couldn't transcribe your voice message clearly. Please try again or send a text message."
+                        "🎤 Não consegui transcrever sua mensagem de voz claramente. Tente novamente ou envie uma mensagem de texto."
                     )
 
             except AudioTranscriptionError as e:
                 logging.error(f"Transcription error: {e}")
                 await update.message.reply_text(
-                    "🎤 Sorry, I had trouble transcribing your voice message. Please try sending a text message instead."
+                    "🎤 Desculpe, tive problemas para transcrever sua mensagem de voz. Tente enviar uma mensagem de texto."
                 )
             finally:
                 # Clean up temporary file
@@ -271,7 +271,7 @@ class PRDTelegramBot:
         except Exception as e:
             logging.error(f"Error handling voice message: {str(e)}")
             await update.message.reply_text(
-                "Sorry, I encountered an error processing your voice message. Please try sending a text message."
+                "Desculpe, encontrei um erro ao processar sua mensagem de voz. Tente enviar uma mensagem de texto."
             )
 
     def run(self):
