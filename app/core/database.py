@@ -41,14 +41,14 @@ def get_database_storage(mode: StorageMode = "workflow_v2") -> Optional[BaseDb]:
             db_path = database_url.replace("sqlite:///", "")
             print(f"[DATABASE] Using SQLite database: {db_path} ({table_name})")
             storage = SqliteDb(
-                table_name=table_name,
+                session_table=table_name,
                 db_file=db_path,
             )
 
         elif database_url.startswith("postgresql"):
             print(f"[DATABASE] Using PostgreSQL database ({table_name})")
             storage = PostgresDb(
-                table_name=table_name,
+                session_table=table_name,
                 db_url=database_url,
             )
         else:

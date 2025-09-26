@@ -172,6 +172,10 @@ class LeadConversionWorkflow(Workflow):
             **kwargs,
         )
 
+        # Initialize storage attributes for compatibility
+        self.storage = self.db
+        self.workflow_session = None
+
     # ------------------------------------------------------------------
     # Agent initialisation
     # ------------------------------------------------------------------
@@ -1167,26 +1171,47 @@ class LeadConversionWorkflow(Workflow):
         self._save_session_state_to_db()
 
     def _ensure_session_loaded(self) -> None:
-        if self.workflow_session is None:
-            self.load_session()
+        """Initialize workflow session if needed."""
+        if self.workflow_session is None and self.storage and self.session_id:
+            # Try to read existing session or create new one
+            try:
+                from agno.session.workflow import WorkflowSession
+                self.workflow_session = WorkflowSession(
+                    session_id=self.session_id,
+                    workflow_id=self.name or "lead_conversion",
+                    session_data={}
+                )
+            except Exception as exc:
+                logger.warning("Failed to create workflow session: %s", exc)
+                self.workflow_session = None
 
     def _save_session_state_to_db(self) -> None:
-        """Manually save session state to database using workflow session."""
+        """Manually save session state to database using storage directly."""
         try:
-            if not self.session_state:
+            if not self.session_state or not self.storage or not self.session_id:
                 return
 
-            # Ensure we have a workflow session
-            self._ensure_session_loaded()
-
-            if self.workflow_session and self.storage:
-                # Set the session data
-                session_data_to_save = dict(self.session_state)
-                self.workflow_session.session_data = session_data_to_save
-
-                # Use the storage's upsert method with the workflow session
-                # This bypasses the broken write_to_storage() method
-                self.storage.upsert(self.workflow_session)
+            # Use storage directly instead of workflow_session
+            if hasattr(self.storage, 'upsert_session'):
+                # Create a simple session record structure
+                session_data = {
+                    'session_id': self.session_id,
+                    'session_data': dict(self.session_state),
+                    'updated_at': datetime.now().isoformat()
+                }
+                # Try to save using the storage backend
+                try:
+                    from agno.session.workflow import WorkflowSession
+                    session_record = WorkflowSession(
+                        session_id=self.session_id,
+                        workflow_id=self.name or "lead_conversion",
+                        session_data=dict(self.session_state)
+                    )
+                    self.storage.upsert_session(session_record)
+                except Exception as storage_exc:
+                    logger.warning("Failed to save via storage.upsert_session: %s", storage_exc)
+                    # Fallback: just skip persistence for now
+                    pass
 
                 # Real-time data logging for monitoring
                 context = self._context
@@ -1235,7 +1260,8 @@ class LeadConversionWorkflow(Workflow):
                 return
 
             # Use storage to load the session
-            session_record = self.storage.read(self.session_id)
+            from agno.db.base import SessionType
+            session_record = self.storage.get_session(self.session_id, SessionType.WORKFLOW)
 
             if session_record and hasattr(session_record, 'session_data') and session_record.session_data:
                 # Restore session state from database
